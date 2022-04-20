@@ -66,7 +66,7 @@ class Partitioner:
         lemmatizer = WordNetLemmatizer()
         absolute_threshold = int(self.caption_threshold * len(captions))
         dynamic_captions = 0
-        dynamic_tokens, dynamic_lexnames = [], []
+        dynamic_tokens, dynamic_lexnames, static_tokens = [], [], []
         for caption in captions:
             tokenized_caption = nltk.word_tokenize(caption)
             tagged_caption = nltk.pos_tag(tokenized_caption)
@@ -81,9 +81,11 @@ class Partitioner:
                         dynamic_tokens.append(token[0])
                         dynamic_lexnames.append(str(synset._lexname))
                         dynamic_captions += 1
+                    else:
+                        static_tokens.append(token[0])
 
         metadata = DynamicMetadata(dynamic_count=dynamic_captions, dynamic_verbs=dynamic_tokens,
-                                   lexnames=dynamic_lexnames)
+                                   static_verbs=static_tokens, lexnames=dynamic_lexnames)
         return dynamic_captions >= absolute_threshold, metadata
 
     def is_dynamic_wsd(self, captions):
