@@ -78,11 +78,11 @@ class Partitioner:
                     except WordNetError:
                         break
                     if synset._lexname in self.dynamic_lexnames:
-                        dynamic_tokens.append(token[0])
+                        dynamic_tokens.append(lem_token)
                         dynamic_lexnames.append(str(synset._lexname))
                         dynamic_captions += 1
                     else:
-                        static_tokens.append(token[0])
+                        static_tokens.append(lem_token)
 
         metadata = DynamicMetadata(dynamic_count=dynamic_captions, dynamic_verbs=dynamic_tokens,
                                    static_verbs=static_tokens, lexnames=dynamic_lexnames)
