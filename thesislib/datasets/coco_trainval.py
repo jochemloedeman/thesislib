@@ -1,12 +1,10 @@
 import os
 import json
-
 import torch
 import torchvision
 from torch.utils.data import Dataset
-
 from PIL import Image
-from thesislib.util.utils import pre_caption
+from thesislib.util import pre_caption
 
 
 class COCOCaptions(Dataset):

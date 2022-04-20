@@ -4,9 +4,9 @@ from nltk.corpus import wordnet as wn
 from nltk import WordNetLemmatizer
 from nltk.corpus.reader import WordNetError
 
-from thesislib.partition.dynamic_metadata import DynamicMetadata
-from thesislib.partition.partition import Partition
-from thesislib.util.utils import pre_caption
+from thesislib.partition import DynamicMetadata
+from thesislib.partition import Partition
+from thesislib.util import pre_caption
 
 
 class Partitioner:

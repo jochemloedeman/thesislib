@@ -7,7 +7,7 @@ from torchvision.datasets.utils import download_url
 
 from PIL import Image
 
-from thesislib.util.utils import pre_caption
+from thesislib.util import pre_caption
 
 
 class Flickr30kDataset(Dataset):
