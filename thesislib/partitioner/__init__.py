@@ -1,1 +1,1 @@
-from thesislib.partitioner.partitioner import Partitioner
+from .partitioner import Partitioner
