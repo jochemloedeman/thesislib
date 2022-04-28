@@ -1,5 +1,7 @@
 import os
 import json
+import random
+
 import torch
 import torchvision
 from torch.utils.data import Dataset
@@ -20,7 +22,7 @@ class COCOCaptions(Dataset):
         ann_root (string): directory to store the annotation file
         split (string): val or test
         """
-        filenames = {'train': 'train_2014.json', 'val': 'val_2014.json'}
+        filenames = {'train': 'train_2014.json'}
         self.split = split
         self.annotation = json.load(open(os.path.join(ann_root, filenames[split]), 'r'))
         self.transform = transform
@@ -46,26 +48,20 @@ class COCOCaptions(Dataset):
         self.text_length = txt_id
 
     def __len__(self):
-        return self.text_length if self.split == 'train' else len(self.annotation)
+        return len(self.annotation)
 
     def __getitem__(self, index):
 
-        if self.split == 'train':
-            img_id = self.txt2vis[index]
-            txt_idx = self.vis2txt[img_id].index(index)
-        else:
-            img_id = index
-            txt_idx = 0
-
-        image_path = os.path.join(self.image_root, self.annotation[img_id]['image'])
+        txt_idx = random.randint(0, self.captions_per_image - 1)
+        image_path = os.path.join(self.image_root, self.annotation[index]['image'])
         image = Image.open(image_path).convert('RGB')
         image = self.transform(image)
-        caption = [self.text[text_idx] for text_idx in self.vis2txt[img_id]][txt_idx]
-        is_dynamic = img_id in self.dynamic_ids
-        return image, img_id, caption, is_dynamic
+        caption = [self.text[text_idx] for text_idx in self.vis2txt[index]][txt_idx]
+        is_dynamic = index in self.dynamic_ids
+        return image, index, caption, is_dynamic
 
 
-def caption_collate(batch):
+def train_collate(batch):
     images = torch.stack([element[0] for element in batch])
     captions = [element[2] for element in batch]
     dyn_bools = torch.tensor([element[3] for element in batch])
