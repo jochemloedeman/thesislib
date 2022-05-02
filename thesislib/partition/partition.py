@@ -17,3 +17,9 @@ class Partition:
     def save(self, file_path):
         with open(file_path, 'wb') as save_file:
             pickle.dump(self, save_file)
+
+    @staticmethod
+    def load(file_path):
+        with open(file_path, 'rb') as partition_file:
+            new_partition = pickle.load(partition_file)
+        return new_partition
