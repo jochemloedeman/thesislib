@@ -47,6 +47,7 @@ class COCOCaptionsVal(Dataset):
                 txt_id += 1
 
         self.text_length = txt_id
+
         self.dyn_bools = self._create_dyn_bools()
         split_text, split_bools = self._split_texts_and_bools()
         self.tokenized_captions = [clip.tokenize(split) for split in split_text]
@@ -82,5 +83,4 @@ class COCOCaptionsVal(Dataset):
 def val_test_collate(batch):
     images = torch.stack([element[0] for element in batch])
     indices = [element[1] for element in batch]
-    dyn_bools = torch.tensor([element[2] for element in batch])
-    return images, indices, dyn_bools
+    return images, indices
