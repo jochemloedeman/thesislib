@@ -14,7 +14,7 @@ class COCOCaptions(Dataset):
                  image_root,
                  ann_root,
                  split,
-                 partition,
+                 partition=None,
                  transform=torchvision.transforms.Compose([]),
                  max_words=30):
         """
@@ -22,12 +22,12 @@ class COCOCaptions(Dataset):
         ann_root (string): directory to store the annotation file
         split (string): val or test
         """
-        filenames = {'train': 'train_2014.json'}
+        filenames = {'train': 'train_2014.json', 'val': 'val_2014.json'}
         self.split = split
         self.annotation = json.load(open(os.path.join(ann_root, filenames[split]), 'r'))
         self.transform = transform
         self.image_root = image_root
-        self.dynamic_ids = set(partition.dynamic['vis_ids'])
+        self.dynamic_ids = set(partition.dynamic['vis_ids']) if partition is not None else None
 
         self.captions_per_image = 5
         self.text = []
@@ -57,7 +57,7 @@ class COCOCaptions(Dataset):
         image = Image.open(image_path).convert('RGB')
         image = self.transform(image)
         caption = [self.text[text_idx] for text_idx in self.vis2txt[index]][txt_idx]
-        is_dynamic = index in self.dynamic_ids
+        is_dynamic = index in self.dynamic_ids if self.dynamic_ids is not None else False
         return image, index, caption, is_dynamic
 
 
@@ -66,3 +66,9 @@ def train_collate(batch):
     captions = [element[2] for element in batch]
     dyn_bools = torch.tensor([element[3] for element in batch])
     return images, captions, dyn_bools
+
+
+def train_collate_no_bools(batch):
+    images = torch.stack([element[0] for element in batch])
+    captions = [element[2] for element in batch]
+    return images, captions

@@ -16,8 +16,8 @@ class COCOKarpathy(Dataset):
                  image_root,
                  ann_root,
                  split,
-                 partition,
                  nr_text_chunks,
+                 partition=None,
                  transform=torchvision.transforms.Compose([]),
                  max_words=30):
         '''
@@ -34,8 +34,9 @@ class COCOKarpathy(Dataset):
         self.annotation = json.load(open(os.path.join(ann_root, filenames[split]), 'r'))
         self.transform = transform
         self.image_root = image_root
-        self.dynamic_vis_ids = set(partition.dynamic['vis_ids'])
-        self.dynamic_cap_ids = set(partition.dynamic['cap_ids'])
+        self.dynamic_vis_ids = set(partition.dynamic['vis_ids']) if partition is not None else None
+        self.dynamic_cap_ids = set(partition.dynamic['cap_ids']) if partition is not None else None
+
         self.nr_text_chunks = nr_text_chunks
 
         self.text = []
@@ -54,22 +55,29 @@ class COCOKarpathy(Dataset):
                 txt_id += 1
 
         self.dyn_bools = self._create_dyn_bools()
-        split_text, split_bools = self._split_texts_and_bools()
+        self.split_bools = self._split_bools() if self.dyn_bools is not None else None
+        split_text = self._split_texts()
         self.tokenized_captions = [clip.tokenize(split) for split in split_text]
-        self.split_bools = split_bools
 
-    def _split_texts_and_bools(self):
+    def _split_texts(self):
         splitted_texts = []
-        splitted_bools = []
         split_size = len(self.text) // self.nr_text_chunks
         for i in range(self.nr_text_chunks - 1):
             splitted_texts.append(self.text[(i * split_size):((i + 1) * split_size)])
-            splitted_bools.append(self.dyn_bools[(i * split_size):((i + 1) * split_size)])
         splitted_texts.append(self.text[(split_size * (self.nr_text_chunks - 1)):])
+        return splitted_texts
+
+    def _split_bools(self):
+        splitted_bools = []
+        split_size = len(self.text) // self.nr_text_chunks
+        for i in range(self.nr_text_chunks - 1):
+            splitted_bools.append(self.dyn_bools[(i * split_size):((i + 1) * split_size)])
         splitted_bools.append(self.dyn_bools[(split_size * (self.nr_text_chunks - 1)):])
-        return splitted_texts, splitted_bools
+        return splitted_bools
 
     def _create_dyn_bools(self):
+        if self.dynamic_cap_ids is None:
+            return None
         text_indices = list(range(len(self.text)))
         dyn_bools = torch.tensor([text_index in self.dynamic_cap_ids for text_index in text_indices])
         return dyn_bools
