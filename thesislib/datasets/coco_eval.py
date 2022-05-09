@@ -1,5 +1,6 @@
 import os
 import json
+import random
 
 import torch
 import torchvision
@@ -39,6 +40,7 @@ class COCOKarpathy(Dataset):
 
         self.nr_text_chunks = nr_text_chunks
 
+        self.captions_per_image = 5
         self.text = []
         self.image = []
         self.txt2vis = {}
@@ -87,8 +89,22 @@ class COCOKarpathy(Dataset):
 
     def __getitem__(self, index):
 
+        txt_idx = 0
         image_path = os.path.join(self.image_root, self.annotation[index]['image'])
+        caption = [self.text[text_idx] for text_idx in self.vis2txt[index]][txt_idx]
         image = Image.open(image_path).convert('RGB')
         image = self.transform(image)
 
-        return image, index
+        return image, index, caption
+
+
+def val_test_collate(batch):
+    images = torch.stack([element[0] for element in batch])
+    indices = [element[1] for element in batch]
+    return images, indices
+
+
+def test_collate_with_caption(batch):
+    images = torch.stack([element[0] for element in batch])
+    captions = [element[2] for element in batch]
+    return images, captions

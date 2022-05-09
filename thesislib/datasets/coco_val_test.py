@@ -79,8 +79,3 @@ class COCOCaptionsVal(Dataset):
         dyn_bools = torch.tensor([text_index in self.dynamic_cap_ids for text_index in text_indices])
         return dyn_bools
 
-
-def val_test_collate(batch):
-    images = torch.stack([element[0] for element in batch])
-    indices = [element[1] for element in batch]
-    return images, indices
