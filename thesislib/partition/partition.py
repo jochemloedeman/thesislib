@@ -2,8 +2,14 @@ import pickle
 
 
 class Partition:
-    def __init__(self, dynamic_vis_ids, static_vis_ids, dynamic_cap_ids, static_cap_ids,
-                 dynamic_metadata, static_metadata):
+    def __init__(self,
+                 dynamic_vis_ids,
+                 static_vis_ids,
+                 dynamic_cap_ids,
+                 static_cap_ids,
+                 dynamic_metadata=None,
+                 static_metadata=None):
+
         self.static = {"vis_ids": static_vis_ids,
                        "cap_ids": static_cap_ids,
                        "metadata": static_metadata}

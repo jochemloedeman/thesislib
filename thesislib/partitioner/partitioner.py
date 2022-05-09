@@ -1,5 +1,7 @@
 from tqdm import tqdm
 import nltk
+import random
+import itertools
 from nltk.corpus import wordnet as wn
 from nltk import WordNetLemmatizer
 from nltk.corpus.reader import WordNetError
@@ -92,5 +94,29 @@ class Partitioner:
         pass
 
 
-def is_verb(token):
+def is_verb(token) -> bool:
     return True if token[1][0] == 'V' else False
+
+
+def create_random_partition(size: int, dynamic_ratio: float, vis2txt: dict) -> Partition:
+    partition_bools = random.choices(population=[True, False], k=size, weights=[dynamic_ratio, 1 - dynamic_ratio])
+    visual_ids = list(range(size))
+    dynamic_vis_ids = list(itertools.compress(visual_ids, partition_bools))
+    static_vis_ids = list(itertools.compress(visual_ids, [not elem for elem in partition_bools]))
+    dynamic_cap_ids = [cap_id for index in dynamic_vis_ids for cap_id in vis2txt[index]]
+    static_cap_ids = [cap_id for index in static_vis_ids for cap_id in vis2txt[index]]
+
+    return Partition(dynamic_vis_ids=dynamic_vis_ids,
+                     static_vis_ids=static_vis_ids,
+                     dynamic_cap_ids=dynamic_cap_ids,
+                     static_cap_ids=static_cap_ids)
+
+
+def create_all_dynamic_partition(size: int, vis2txt: dict) -> Partition:
+    dynamic_vis_ids = list(range(size))
+    dynamic_cap_ids = [cap_id for index in dynamic_vis_ids for cap_id in vis2txt[index]]
+
+    return Partition(dynamic_vis_ids=dynamic_vis_ids,
+                     static_vis_ids=[],
+                     dynamic_cap_ids=dynamic_cap_ids,
+                     static_cap_ids=[])
