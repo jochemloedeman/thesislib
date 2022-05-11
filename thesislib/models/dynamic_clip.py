@@ -83,6 +83,7 @@ class DynamicClip(LightningModule):
     def forward(self, images, tokenized_captions, dynamic_bools):
         image_features = self.encode_image(images)
         text_features = self.encode_text(tokenized_captions, dynamic_bools)
+        assert torch.any(dynamic_bools)
 
         # normalized features
         image_features = image_features / image_features.norm(dim=1, keepdim=True)
