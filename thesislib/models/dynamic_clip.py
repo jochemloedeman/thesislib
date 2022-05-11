@@ -178,7 +178,11 @@ class DynamicClip(LightningModule):
         return parent_parser
 
 
-def transfer_encoders(lightning_clip: LightningClip, dynamic_clip: DynamicClip):
+def transfer_clip_modules(lightning_clip: LightningClip, dynamic_clip: DynamicClip):
     dynamic_clip.text_encoder = lightning_clip.text_encoder
     dynamic_clip.image_encoder = lightning_clip.image_encoder
+    dynamic_clip.positional_embedding = lightning_clip.positional_embedding
+    dynamic_clip.logit_scale = lightning_clip.logit_scale
+    dynamic_clip.ln_final = lightning_clip.ln_final
+    dynamic_clip.text_projection = lightning_clip.text_projection
 
