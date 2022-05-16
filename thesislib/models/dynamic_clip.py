@@ -12,12 +12,13 @@ class DynamicClip(LightningModule):
     def __init__(self, clip_model,
                  context_length,
                  insertion,
+                 target_partition,
                  scheduler,
                  validation_partition,
                  test_partition):
 
         super().__init__()
-        self.save_hyperparameters("context_length", "insertion", "scheduler")
+        self.save_hyperparameters("context_length", "insertion", "scheduler", "target_partition")
         self.image_encoder = clip_model.visual
         self.text_encoder = clip_model.transformer
         self.positional_embedding = clip_model.positional_embedding
@@ -26,8 +27,12 @@ class DynamicClip(LightningModule):
         self.scheduler = scheduler
         self.text_projection = clip_model.text_projection
 
+        self.target_partition = target_partition
         self.context_length = context_length
-        self.context_addition = ContextAddition(clip_model, context_length, insertion)
+        self.context_addition = ContextAddition(clip_model=clip_model,
+                                                context_length=context_length,
+                                                insertion=insertion,
+                                                target_partition=target_partition)
         self._freeze_components()
 
         self.validation_recall = PartitionRecall(validation_partition)

@@ -7,7 +7,8 @@ class ContextAddition(nn.Module):
     def __init__(self,
                  clip_model,
                  context_length,
-                 insertion):
+                 insertion,
+                 target_partition):
 
         super().__init__()
         dtype = clip_model.dtype
@@ -17,10 +18,17 @@ class ContextAddition(nn.Module):
         self.context_vectors = nn.Parameter(context_vectors)
         self.context_length = context_length
         self.insertion = insertion
+        self.target_partition = target_partition
         self.token_embedding = clip_model.token_embedding
         self.eot_token = SimpleTokenizer().encoder["<|endoftext|>"]
 
     def _insert_context(self, embeddings, dynamic_bools, tokenized_text):
+
+        if self.target_partition == 'all':
+            dynamic_bools = torch.tensor([True] * len(dynamic_bools)).type_as(dynamic_bools)
+        elif self.target_partition == 'none':
+            dynamic_bools = torch.tensor([False] * len(dynamic_bools)).type_as(dynamic_bools)
+
         if self.insertion == 'prefix':
             return self._insert_prefix_context(embeddings, dynamic_bools)
         elif self.insertion == 'postfix':
