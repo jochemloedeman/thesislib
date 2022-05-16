@@ -10,15 +10,18 @@ from ..metrics import PartitionRecall
 class DynamicClip(LightningModule):
 
     def __init__(self, clip_model,
-                 context_length,
-                 insertion,
+                 ca_length,
+                 ca_insertion,
+                 da_length,
+                 da_insertion,
                  target_partition,
                  scheduler,
                  validation_partition,
                  test_partition):
 
         super().__init__()
-        self.save_hyperparameters("context_length", "insertion", "scheduler", "target_partition")
+        self.save_hyperparameters("ca_length", "ca_insertion", "scheduler", "target_partition",
+                                  "da_length", "da_insertion")
         self.image_encoder = clip_model.visual
         self.text_encoder = clip_model.transformer
         self.positional_embedding = clip_model.positional_embedding
@@ -28,10 +31,12 @@ class DynamicClip(LightningModule):
         self.text_projection = clip_model.text_projection
 
         self.target_partition = target_partition
-        self.context_length = context_length
+        self.ca_length = ca_length
         self.context_addition = ContextAddition(clip_model=clip_model,
-                                                context_length=context_length,
-                                                insertion=insertion,
+                                                ca_length=ca_length,
+                                                ca_insertion=ca_insertion,
+                                                da_length=da_length,
+                                                da_insertion=da_insertion,
                                                 target_partition=target_partition)
         self._freeze_components()
 
@@ -74,7 +79,7 @@ class DynamicClip(LightningModule):
         # x.shape = [batch_size, n_ctx, transformer.width]
         # take features from the eot embedding (eot_token is the highest number in each sequence)
         x = torch.where(dynamic_bools.unsqueeze(1),
-                        x[torch.arange(x.shape[0]), tokenized_text.argmax(dim=-1) + self.context_length],
+                        x[torch.arange(x.shape[0]), tokenized_text.argmax(dim=-1) + self.ca_length],
                         x[torch.arange(x.shape[0]), tokenized_text.argmax(dim=-1)]
                         )
 
