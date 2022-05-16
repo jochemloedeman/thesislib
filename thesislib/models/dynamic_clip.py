@@ -12,18 +12,18 @@ class DynamicClip(LightningModule):
     def __init__(self, clip_model,
                  context_length,
                  insertion,
-                 optimizer,
+                 scheduler,
                  validation_partition,
                  test_partition):
 
         super().__init__()
-        self.save_hyperparameters("context_length", "insertion", "optimizer")
-        self.optimizer = optimizer
+        self.save_hyperparameters("context_length", "insertion", "scheduler")
         self.image_encoder = clip_model.visual
         self.text_encoder = clip_model.transformer
         self.positional_embedding = clip_model.positional_embedding
         self.logit_scale = clip_model.logit_scale
         self.ln_final = clip_model.ln_final
+        self.scheduler = scheduler
         self.text_projection = clip_model.text_projection
 
         self.context_length = context_length
@@ -98,13 +98,11 @@ class DynamicClip(LightningModule):
         return logits_per_image, logits_per_text
 
     def configure_optimizers(self):
-
-        if self.optimizer == 'sgd':
-            optimizer = torch.optim.SGD(filter(lambda p: p.requires_grad, self.parameters()), lr=2e-3)
-            scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=25)
-            return {"optimizer": optimizer, "lr_scheduler": scheduler}
-        else:
-            return torch.optim.Adam(filter(lambda p: p.requires_grad, self.parameters()), lr=1e-3)
+        optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, self.parameters()), lr=1e-3)
+        if self.scheduler:
+            scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer=optimizer, milestones=[120, 160, 200])
+            return [optimizer], [scheduler]
+        return optimizer
 
     def training_step(self, batch, batch_idx):
         loss = self._clip_step(batch)
@@ -170,13 +168,6 @@ class DynamicClip(LightningModule):
         self.log('test_static_r@5', eval_dict["static"][1])
         self.log('test_total_r@5', eval_dict["total"][1])
         self.test_recall.reset()
-
-    @staticmethod
-    def add_model_specific_args(parent_parser):
-        parser = parent_parser.add_argument_group("DynamicClip")
-        parser.add_argument('--context_length', default=6, type=int)
-        parser.add_argument('--insertion', default='infix', type=str)
-        return parent_parser
 
 
 def transfer_clip_modules(lightning_clip: LightningClip, dynamic_clip: DynamicClip):
