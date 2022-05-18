@@ -7,8 +7,10 @@ from torch.nn.functional import cross_entropy
 
 class LightningClip(LightningModule):
 
-    def __init__(self, clip_model, learning_rate):
+    def __init__(self, learning_rate):
         super().__init__()
+        clip_model, preprocessor = clip.load('ViT-B/32', device='cpu')
+        self.save_hyperparameters()
         self.learning_rate = learning_rate
         self.image_encoder = clip_model.visual
         self.text_encoder = clip_model.transformer

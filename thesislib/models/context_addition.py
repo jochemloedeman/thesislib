@@ -18,6 +18,7 @@ class ContextAddition(nn.Module):
         ca_vectors = torch.empty(ca_length, embedding_dim, dtype=dtype)
         da_vectors = torch.empty(da_length, embedding_dim, dtype=dtype)
         nn.init.normal_(ca_vectors, std=0.02)
+        nn.init.normal_(da_vectors, std=0.02)
         self.ca_vectors = nn.Parameter(ca_vectors)
         self.da_vectors = nn.Parameter(da_vectors)
         self.ca_length = ca_length
@@ -28,7 +29,7 @@ class ContextAddition(nn.Module):
         self.token_embedding = clip_model.token_embedding
         self.eot_token = SimpleTokenizer().encoder["<|endoftext|>"]
 
-    def _insert_context(self, embeddings, dynamic_bools, tokenized_text):
+    def _insert_context(self, embeddings, dynamic_bools, eot_indices):
 
         if self.target_partition == 'all':
             dynamic_bools = torch.tensor([True] * len(dynamic_bools)).type_as(dynamic_bools)
@@ -36,67 +37,72 @@ class ContextAddition(nn.Module):
             dynamic_bools = torch.tensor([False] * len(dynamic_bools)).type_as(dynamic_bools)
 
         if self.ca_insertion == 'prefix':
-            return self._insert_prefix_context(embeddings, dynamic_bools)
+            return self._insert_prefix_vectors(embeddings, dynamic_bools, self.ca_vectors)
         elif self.ca_insertion == 'postfix':
-            return self._insert_postfix_context(embeddings, dynamic_bools, tokenized_text)
+            return self._insert_postfix_vectors(embeddings, dynamic_bools, eot_indices, self.ca_vectors)
         elif self.ca_insertion == 'infix':
             assert self.ca_length % 2 == 0
-            return self._insert_infix_context(embeddings, dynamic_bools, tokenized_text)
+            return self._insert_infix_vectors(embeddings, dynamic_bools, eot_indices, self.ca_vectors)
 
-    # def _insert_domain_adaptation(self, embeddings, tokenized_text):
-    #     if self.da_insertion == 'prefix':
-    #     elif self.da_insertion == 'postfix':
-    #     elif self.da_insertion == 'infix':
-    #         assert self.da_length % 2 == 0
+    def _insert_domain_adaptation(self, embeddings, eot_indices):
 
-    def _insert_prefix_context(self, embeddings, dynamic_bools):
+        sample_selection = torch.tensor([True] * len(embeddings), device=embeddings.device)
+
+        if self.ca_insertion == 'prefix':
+            return self._insert_prefix_vectors(embeddings, sample_selection, self.da_vectors)
+        elif self.ca_insertion == 'postfix':
+            return self._insert_postfix_vectors(embeddings, sample_selection, eot_indices, self.da_vectors)
+        elif self.ca_insertion == 'infix':
+            assert self.da_length % 2 == 0
+            return self._insert_infix_vectors(embeddings, sample_selection, eot_indices, self.da_vectors)
+
+    def _insert_prefix_vectors(self, embeddings, sample_selection, addition_vectors):
         batch_size = embeddings.shape[0]
-        context_block = self.ca_vectors.repeat(batch_size, 1, 1)
+        addition_repeated = addition_vectors.repeat(batch_size, 1, 1)
         all_dynamic = torch.cat([embeddings[:, :1, :],
-                                 context_block,
-                                 embeddings[:, 1:(77 - self.ca_length), :]], dim=1)
+                                 addition_repeated,
+                                 embeddings[:, 1:(77 - len(addition_vectors)), :]], dim=1)
 
-        dynamic_bools = dynamic_bools.reshape(-1, 1, 1)
-        corrected_embeddings = torch.where(dynamic_bools, all_dynamic, embeddings)
+        sample_selection = sample_selection.reshape(-1, 1, 1)
+        corrected_embeddings = torch.where(sample_selection, all_dynamic, embeddings)
         return corrected_embeddings
 
-    def _insert_postfix_context(self, embeddings, dynamic_bools, tokenized_text):
+    def _insert_postfix_vectors(self, embeddings, sample_selection, eot_indices, addition_vectors):
         batch_size = embeddings.shape[0]
         all_dynamic = torch.zeros_like(embeddings).type_as(embeddings)
-        context_block = self.ca_vectors
-        eot_indices = (tokenized_text == self.eot_token).nonzero(as_tuple=True)[1]
         for idx in range(batch_size):
             eot_index = eot_indices[idx].item()
             all_dynamic[idx, :, :] = torch.cat([embeddings[idx, :eot_index, :],
-                                                context_block,
-                                                embeddings[idx, eot_index:(77 - self.ca_length), :]
+                                                addition_vectors,
+                                                embeddings[idx, eot_index:(77 - len(addition_vectors)), :]
                                                 ])
-        dynamic_bools = dynamic_bools.reshape(-1, 1, 1)
-        corrected_embeddings = torch.where(dynamic_bools, all_dynamic, embeddings)
+        sample_selection = sample_selection.reshape(-1, 1, 1)
+        corrected_embeddings = torch.where(sample_selection, all_dynamic, embeddings)
         return corrected_embeddings
 
-    def _insert_infix_context(self, embeddings, dynamic_bools, tokenized_text):
+    def _insert_infix_vectors(self, embeddings, sample_selection, eot_indices, addition_vectors):
         batch_size = embeddings.shape[0]
-        partial_length = self.ca_length // 2
+        partial_length = len(addition_vectors) // 2
         all_dynamic = torch.zeros_like(embeddings).type_as(embeddings)
-        context_block = self.ca_vectors
-        eot_indices = (tokenized_text == self.eot_token).nonzero(as_tuple=True)[1]
         for idx in range(batch_size):
             eot_index = eot_indices[idx].item()
             all_dynamic[idx, :, :] = torch.cat([embeddings[idx, :1, :],
-                                                context_block[:partial_length, :],
+                                                addition_vectors[:partial_length, :],
                                                 embeddings[idx, 1:eot_index, :],
-                                                context_block[partial_length:, :],
-                                                embeddings[idx, eot_index:(77 - self.ca_length), :]
+                                                addition_vectors[partial_length:, :],
+                                                embeddings[idx, eot_index:(77 - len(addition_vectors)), :]
                                                 ])
 
-        dynamic_bools = dynamic_bools.reshape(-1, 1, 1)
-        corrected_embeddings = torch.where(dynamic_bools, all_dynamic, embeddings)
+        sample_selection = sample_selection.reshape(-1, 1, 1)
+        corrected_embeddings = torch.where(sample_selection, all_dynamic, embeddings)
         return corrected_embeddings
 
     # def _insert_prefix_vectors(self, vectors, bools):
 
     def forward(self, tokenized_text, dynamic_bools):
+        eot_indices = (tokenized_text == self.eot_token).nonzero(as_tuple=True)[1]
         x = self.token_embedding(tokenized_text)  # [batch_size, n_ctx, d_model]
-        x = self._insert_context(x, dynamic_bools, tokenized_text)
+        x = self._insert_domain_adaptation(x, eot_indices=eot_indices)
+        eot_indices += self.da_length
+        x = self._insert_context(x, dynamic_bools, eot_indices)
         return x
