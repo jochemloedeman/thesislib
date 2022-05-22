@@ -120,6 +120,7 @@ class DynamicClip(LightningModule):
         return loss
 
     def validation_step(self, batch, batch_idx):
+        val_loss = self._clip_step(batch)
         images, indices = batch
         dataset = self.trainer.val_dataloaders[0].dataset
         tokenized_captions = dataset.tokenized_captions
@@ -130,6 +131,7 @@ class DynamicClip(LightningModule):
             logits_per_image, logits_per_text = self(images, tokenized_split, text_bools[i])
             logits.append(logits_per_image)
         combined_logits = torch.cat(logits, dim=1)
+        self.log("val_loss", val_loss)
         self.validation_recall.update(combined_logits)
 
     def validation_epoch_end(self, outputs):
