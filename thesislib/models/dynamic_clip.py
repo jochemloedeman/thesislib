@@ -19,7 +19,7 @@ class DynamicClip(LightningModule):
                  test_partition):
 
         super().__init__()
-        self.save_hyperparameters("ca_length", "ca_insertion", "scheduler", "target_partition",
+        self.save_hyperparameters("ca_length", "ca_insertion", "target_partition",
                                   "da_length", "da_insertion")
         self.image_encoder = clip_model.visual
         self.text_encoder = clip_model.transformer
