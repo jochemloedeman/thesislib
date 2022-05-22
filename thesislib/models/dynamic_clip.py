@@ -109,10 +109,12 @@ class DynamicClip(LightningModule):
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, self.parameters()), lr=1e-3)
-        if self.scheduler:
-            scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer=optimizer, milestones=[120, 160, 200])
-            return [optimizer], [scheduler]
-        return optimizer
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer=optimizer, patience=10)
+        return {'optimizer': optimizer,
+                'lr_scheduler': {
+                    'scheduler': scheduler,
+                    'monitor': 'validation_total_r@5',
+                }}
 
     def training_step(self, batch, batch_idx):
         loss = self._clip_step(batch)
