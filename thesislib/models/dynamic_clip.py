@@ -15,7 +15,6 @@ class DynamicClip(LightningModule):
                  da_length,
                  da_insertion,
                  target_partition,
-                 scheduler,
                  validation_partition,
                  test_partition):
 
@@ -27,7 +26,6 @@ class DynamicClip(LightningModule):
         self.positional_embedding = clip_model.positional_embedding
         self.logit_scale = clip_model.logit_scale
         self.ln_final = clip_model.ln_final
-        self.scheduler = scheduler
         self.text_projection = clip_model.text_projection
 
         self.target_partition = target_partition
