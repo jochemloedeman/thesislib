@@ -1,13 +1,16 @@
 import clip
 import torch
+from clip.simple_tokenizer import SimpleTokenizer
 from pytorch_lightning import LightningModule
 from torch.nn.functional import cross_entropy
 
-from . import ContextAddition, LightningClip
+from . import ContextAddition, DomainAdaptation, LightningClip
 from ..metrics import PartitionRecall
 
 
 class DynamicClip(LightningModule):
+
+    eot_token = SimpleTokenizer().encoder["<|endoftext|>"]
 
     def __init__(self, clip_model,
                  ca_length,
@@ -16,26 +19,41 @@ class DynamicClip(LightningModule):
                  da_insertion,
                  target_partition,
                  validation_partition,
-                 test_partition):
+                 test_partition,
+                 domain_adaptation):
 
         super().__init__()
-        self.save_hyperparameters("ca_length", "ca_insertion", "target_partition",
-                                  "da_length", "da_insertion")
+        self.save_hyperparameters("ca_length", "ca_insertion",
+                                  "target_partition",
+                                  "da_length", "da_insertion",
+                                  "domain_adaptation")
+
         self.image_encoder = clip_model.visual
         self.text_encoder = clip_model.transformer
         self.positional_embedding = clip_model.positional_embedding
         self.logit_scale = clip_model.logit_scale
         self.ln_final = clip_model.ln_final
         self.text_projection = clip_model.text_projection
+        self.token_embedding = clip_model.token_embedding
 
         self.target_partition = target_partition
         self.ca_length = ca_length
-        self.context_addition = ContextAddition(clip_model=clip_model,
-                                                ca_length=ca_length,
-                                                ca_insertion=ca_insertion,
-                                                da_length=da_length,
-                                                da_insertion=da_insertion,
-                                                target_partition=target_partition)
+
+        self.context_addition = ContextAddition(
+            clip_model=clip_model,
+            ca_length=ca_length,
+            ca_insertion=ca_insertion,
+            target_partition=target_partition
+        )
+        if not domain_adaptation:
+            self.domain_adaptation = None
+        else:
+            self.domain_adaptation = DomainAdaptation(
+                embedding_dim=clip_model.token_embedding.embedding_dim,
+                da_length=da_length,
+                da_insertion=da_insertion
+            )
+
         self._freeze_components()
 
         self.validation_recall = PartitionRecall(validation_partition)
@@ -58,27 +76,37 @@ class DynamicClip(LightningModule):
             param.requires_grad = False
         for param in self.text_encoder.parameters():
             param.requires_grad = False
-        for param in self.context_addition.token_embedding.parameters():
-            param.requires_grad = False
         for param in self.ln_final.parameters():
+            param.requires_grad = False
+        for param in self.token_embedding.parameters():
             param.requires_grad = False
         self.logit_scale.requires_grad = False
         self.text_projection.requires_grad = False
         self.positional_embedding.requires_grad = False
 
     def encode_text(self, tokenized_text, dynamic_bools):
-        x = self.context_addition(tokenized_text, dynamic_bools)
+        x = self.token_embedding(tokenized_text)
+
+        if self.domain_adaptation:
+            x, eot_indices = self.domain_adaptation(x, tokenized_text)
+        else:
+            eot_indices = \
+                (tokenized_text == self.eot_token).nonzero(as_tuple=True)[1]
+
+        x = self.context_addition(x, eot_indices, dynamic_bools)
         x = x + self.positional_embedding.type(self.dtype)
         x = x.permute(1, 0, 2)  # NLD -> LND
         x = self.text_encoder(x)
         x = x.permute(1, 0, 2)  # LND -> NLD
         x = self.ln_final(x).type(self.dtype)
 
-        # x.shape = [batch_size, n_ctx, transformer.width]
-        # take features from the eot embedding (eot_token is the highest number in each sequence)
+        # x.shape = [batch_size, n_ctx, transformer.width] take features from
+        # the eot embedding (eot_token is the highest number in each sequence)
         x = torch.where(dynamic_bools.unsqueeze(1),
-                        x[torch.arange(x.shape[0]), tokenized_text.argmax(dim=-1) + self.ca_length],
-                        x[torch.arange(x.shape[0]), tokenized_text.argmax(dim=-1)]
+                        x[torch.arange(x.shape[0]), tokenized_text.argmax(
+                            dim=-1) + self.ca_length],
+                        x[torch.arange(x.shape[0]), tokenized_text.argmax(
+                            dim=-1)]
                         )
 
         x = x @ self.text_projection
@@ -94,7 +122,8 @@ class DynamicClip(LightningModule):
         assert torch.any(dynamic_bools)
 
         # normalized features
-        image_features = image_features / image_features.norm(dim=1, keepdim=True)
+        image_features = image_features / image_features.norm(dim=1,
+                                                              keepdim=True)
         text_features = text_features / text_features.norm(dim=1, keepdim=True)
 
         # cosine similarity as logits
@@ -106,8 +135,10 @@ class DynamicClip(LightningModule):
         return logits_per_image, logits_per_text
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, self.parameters()), lr=1e-3)
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer=optimizer, patience=10)
+        optimizer = torch.optim.Adam(
+            filter(lambda p: p.requires_grad, self.parameters()), lr=1e-3)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer=optimizer, patience=10)
         return {'optimizer': optimizer,
                 'lr_scheduler': {
                     'scheduler': scheduler,
@@ -123,11 +154,13 @@ class DynamicClip(LightningModule):
         images, indices = batch
         dataset = self.trainer.val_dataloaders[0].dataset
         tokenized_captions = dataset.tokenized_captions
-        tokenized_captions = [tokenized_split.to(self.device) for tokenized_split in tokenized_captions]
+        tokenized_captions = [tokenized_split.to(self.device) for
+                              tokenized_split in tokenized_captions]
         text_bools = [split.to(self.device) for split in dataset.split_bools]
         logits = []
         for i, tokenized_split in enumerate(tokenized_captions):
-            logits_per_image, logits_per_text = self(images, tokenized_split, text_bools[i])
+            logits_per_image, logits_per_text = self(images, tokenized_split,
+                                                     text_bools[i])
             logits.append(logits_per_image)
         combined_logits = torch.cat(logits, dim=1)
         self.validation_recall.update(combined_logits)
@@ -147,7 +180,8 @@ class DynamicClip(LightningModule):
     def _clip_step(self, batch):
         images, captions, dynamic_bools = batch
         tokenized_captions = clip.tokenize(captions).to(self.device)
-        logits_per_image, logits_per_text = self(images, tokenized_captions, dynamic_bools)
+        logits_per_image, logits_per_text = self(images, tokenized_captions,
+                                                 dynamic_bools)
         labels = torch.arange(len(logits_per_image)).to(self.device)
         image_loss = cross_entropy(logits_per_image, labels)
         text_loss = cross_entropy(logits_per_text, labels)
@@ -158,11 +192,13 @@ class DynamicClip(LightningModule):
         images, indices = batch
         dataset = self.trainer.test_dataloaders[0].dataset
         tokenized_captions = dataset.tokenized_captions
-        tokenized_captions = [tokenized_split.to(self.device) for tokenized_split in tokenized_captions]
+        tokenized_captions = [tokenized_split.to(self.device) for
+                              tokenized_split in tokenized_captions]
         text_bools = [split.to(self.device) for split in dataset.split_bools]
         logits = []
         for i, tokenized_split in enumerate(tokenized_captions):
-            logits_per_image, logits_per_text = self(images, tokenized_split, text_bools[i])
+            logits_per_image, logits_per_text = self(images, tokenized_split,
+                                                     text_bools[i])
             logits.append(logits_per_image)
         combined_logits = torch.cat(logits, dim=1)
         self.test_recall.update(combined_logits)
@@ -180,11 +216,11 @@ class DynamicClip(LightningModule):
         self.test_recall.reset()
 
 
-def transfer_clip_modules(lightning_clip: LightningClip, dynamic_clip: DynamicClip):
+def transfer_clip_modules(lightning_clip: LightningClip,
+                          dynamic_clip: DynamicClip):
     dynamic_clip.text_encoder = lightning_clip.text_encoder
     dynamic_clip.image_encoder = lightning_clip.image_encoder
     dynamic_clip.positional_embedding = lightning_clip.positional_embedding
     dynamic_clip.logit_scale = lightning_clip.logit_scale
     dynamic_clip.ln_final = lightning_clip.ln_final
     dynamic_clip.text_projection = lightning_clip.text_projection
-
