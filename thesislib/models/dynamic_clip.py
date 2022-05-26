@@ -89,9 +89,7 @@ class DynamicClip(LightningModule):
         x = self.token_embedding(tokenized_text)
 
         if self.domain_adaptation:
-            x, eot_indices = self.domain_adaptation(x,
-                                                    tokenized_text,
-                                                    eot_indices)
+            x, eot_indices = self.domain_adaptation(x, eot_indices)
 
         x = self.context_addition(x, eot_indices, dynamic_bools)
         x = x + self.positional_embedding.type(self.dtype)
