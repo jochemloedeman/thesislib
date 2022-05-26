@@ -73,8 +73,7 @@ class DomainAdaptation(pl.LightningModule):
 
         return corrected_embeddings
 
-    def forward(self, text_embeddings, tokenized_text):
-        eot_indices = (tokenized_text == self.eot_token).nonzero(as_tuple=True)[1]
+    def forward(self, text_embeddings, eot_indices):
         x = self._insert_domain_adaptation(text_embeddings,
                                            eot_indices=eot_indices)
         eot_indices += self.da_length

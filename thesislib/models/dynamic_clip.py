@@ -85,13 +85,13 @@ class DynamicClip(LightningModule):
         self.positional_embedding.requires_grad = False
 
     def encode_text(self, tokenized_text, dynamic_bools):
+        eot_indices = (tokenized_text == self.eot_token).nonzero(as_tuple=True)[1]
         x = self.token_embedding(tokenized_text)
 
         if self.domain_adaptation:
-            x, eot_indices = self.domain_adaptation(x, tokenized_text)
-        else:
-            eot_indices = \
-                (tokenized_text == self.eot_token).nonzero(as_tuple=True)[1]
+            x, eot_indices = self.domain_adaptation(x,
+                                                    tokenized_text,
+                                                    eot_indices)
 
         x = self.context_addition(x, eot_indices, dynamic_bools)
         x = x + self.positional_embedding.type(self.dtype)
