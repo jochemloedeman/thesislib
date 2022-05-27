@@ -93,4 +93,6 @@ class ContextAddition(pl.LightningModule):
 
     def forward(self, text_embeddings, eot_indices, dynamic_bools):
         x = self._insert_context(text_embeddings, eot_indices, dynamic_bools)
-        return x
+        offsets = self.ca_length * dynamic_bools
+        eot_indices += offsets
+        return x, eot_indices

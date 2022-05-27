@@ -43,27 +43,23 @@ class DynamicClip(LightningModule):
         self.ca_length = ca_length
 
         if not context_addition:
-            eot_offset = 0
             self.context_addition = None
         else:
-            eot_offset = ca_length
             self.context_addition = ContextAddition(
                 clip_model=clip_model,
                 ca_length=ca_length,
                 ca_insertion=ca_insertion,
                 target_partition=target_partition
             )
+
         if not domain_adaptation:
             self.domain_adaptation = None
         else:
-            eot_offset += da_length
             self.domain_adaptation = DomainAdaptation(
                 embedding_dim=clip_model.token_embedding.embedding_dim,
                 da_length=da_length,
                 da_insertion=da_insertion
             )
-
-        self.eot_offset = eot_offset
 
         self._freeze_components()
 
@@ -103,7 +99,7 @@ class DynamicClip(LightningModule):
         if self.domain_adaptation:
             x, eot_indices = self.domain_adaptation(x, eot_indices)
         if self.context_addition:
-            x = self.context_addition(x, eot_indices, dynamic_bools)
+            x, eot_indices = self.context_addition(x, eot_indices, dynamic_bools)
 
         x = x + self.positional_embedding.type(self.dtype)
         x = x.permute(1, 0, 2)  # NLD -> LND
@@ -113,12 +109,7 @@ class DynamicClip(LightningModule):
 
         # x.shape = [batch_size, n_ctx, transformer.width] take features from
         # the eot embedding (eot_token is the highest number in each sequence)
-        x = torch.where(dynamic_bools.unsqueeze(1),
-                        x[torch.arange(x.shape[0]), tokenized_text.argmax(
-                            dim=-1) + self.eot_offset],
-                        x[torch.arange(x.shape[0]), tokenized_text.argmax(
-                            dim=-1)]
-                        )
+        x = x[torch.arange(x.shape[0]), eot_indices]
 
         x = x @ self.text_projection
 
