@@ -24,7 +24,7 @@ class ContextAddition(pl.LightningModule):
         self.target_partition = target_partition
         self.eot_token = SimpleTokenizer().encoder["<|endoftext|>"]
 
-    def _insert_context(self, embeddings, dynamic_bools, eot_indices):
+    def _insert_context(self, embeddings, eot_indices, dynamic_bools):
 
         if self.target_partition == 'all':
             dynamic_bools = torch.tensor([True] * len(dynamic_bools)).type_as(
@@ -36,12 +36,12 @@ class ContextAddition(pl.LightningModule):
         if self.ca_insertion == 'prefix':
             return self._insert_prefix_vectors(embeddings, dynamic_bools)
         elif self.ca_insertion == 'postfix':
-            return self._insert_postfix_vectors(embeddings, dynamic_bools,
-                                                eot_indices)
+            return self._insert_postfix_vectors(embeddings, eot_indices,
+                                                dynamic_bools)
         elif self.ca_insertion == 'infix':
             assert self.ca_length % 2 == 0
-            return self._insert_infix_vectors(embeddings, dynamic_bools,
-                                              eot_indices)
+            return self._insert_infix_vectors(embeddings, eot_indices,
+                                              dynamic_bools)
 
     def _insert_prefix_vectors(self, embeddings, sample_selection):
         batch_size = embeddings.shape[0]
@@ -57,7 +57,7 @@ class ContextAddition(pl.LightningModule):
                                            embeddings)
         return corrected_embeddings
 
-    def _insert_postfix_vectors(self, embeddings, sample_selection, eot_indices):
+    def _insert_postfix_vectors(self, embeddings, eot_indices, sample_selection):
         batch_size = embeddings.shape[0]
         all_dynamic = torch.zeros_like(embeddings).type_as(embeddings)
         for idx in range(batch_size):
@@ -72,7 +72,7 @@ class ContextAddition(pl.LightningModule):
                                            embeddings)
         return corrected_embeddings
 
-    def _insert_infix_vectors(self, embeddings, sample_selection, eot_indices):
+    def _insert_infix_vectors(self, embeddings, eot_indices, sample_selection):
         batch_size = embeddings.shape[0]
         partial_length = len(self.ca_vectors) // 2
         all_dynamic = torch.zeros_like(embeddings).type_as(embeddings)
@@ -92,5 +92,5 @@ class ContextAddition(pl.LightningModule):
         return corrected_embeddings
 
     def forward(self, text_embeddings, eot_indices, dynamic_bools):
-        x = self._insert_context(text_embeddings, dynamic_bools, eot_indices)
+        x = self._insert_context(text_embeddings, eot_indices, dynamic_bools)
         return x

@@ -9,18 +9,21 @@ from ..metrics import PartitionRecall
 
 
 class DynamicClip(LightningModule):
-
     eot_token = SimpleTokenizer().encoder["<|endoftext|>"]
 
-    def __init__(self, clip_model,
-                 ca_length,
-                 ca_insertion,
-                 da_length,
-                 da_insertion,
-                 target_partition,
-                 validation_partition,
-                 test_partition,
-                 domain_adaptation):
+    def __init__(
+            self,
+            clip_model,
+            ca_length,
+            ca_insertion,
+            da_length,
+            da_insertion,
+            target_partition,
+            validation_partition,
+            test_partition,
+            domain_adaptation,
+            context_addition
+    ):
 
         super().__init__()
         self.save_hyperparameters("ca_length", "ca_insertion",
@@ -39,12 +42,15 @@ class DynamicClip(LightningModule):
         self.target_partition = target_partition
         self.ca_length = ca_length
 
-        self.context_addition = ContextAddition(
-            clip_model=clip_model,
-            ca_length=ca_length,
-            ca_insertion=ca_insertion,
-            target_partition=target_partition
-        )
+        if not context_addition:
+            self.context_addition = None
+        else:
+            self.context_addition = ContextAddition(
+                clip_model=clip_model,
+                ca_length=ca_length,
+                ca_insertion=ca_insertion,
+                target_partition=target_partition
+            )
         if not domain_adaptation:
             self.domain_adaptation = None
         else:
@@ -85,13 +91,15 @@ class DynamicClip(LightningModule):
         self.positional_embedding.requires_grad = False
 
     def encode_text(self, tokenized_text, dynamic_bools):
-        eot_indices = (tokenized_text == self.eot_token).nonzero(as_tuple=True)[1]
+        eot_indices = (tokenized_text == self.eot_token).nonzero(as_tuple=True)[
+            1]
         x = self.token_embedding(tokenized_text)
 
         if self.domain_adaptation:
             x, eot_indices = self.domain_adaptation(x, eot_indices)
+        if self.context_addition:
+            x = self.context_addition(x, eot_indices, dynamic_bools)
 
-        x = self.context_addition(x, eot_indices, dynamic_bools)
         x = x + self.positional_embedding.type(self.dtype)
         x = x.permute(1, 0, 2)  # NLD -> LND
         x = self.text_encoder(x)
