@@ -43,8 +43,10 @@ class DynamicClip(LightningModule):
         self.ca_length = ca_length
 
         if not context_addition:
+            eot_offset = 0
             self.context_addition = None
         else:
+            eot_offset = ca_length
             self.context_addition = ContextAddition(
                 clip_model=clip_model,
                 ca_length=ca_length,
@@ -54,11 +56,14 @@ class DynamicClip(LightningModule):
         if not domain_adaptation:
             self.domain_adaptation = None
         else:
+            eot_offset += da_length
             self.domain_adaptation = DomainAdaptation(
                 embedding_dim=clip_model.token_embedding.embedding_dim,
                 da_length=da_length,
                 da_insertion=da_insertion
             )
+
+        self.eot_offset = eot_offset
 
         self._freeze_components()
 
@@ -110,7 +115,7 @@ class DynamicClip(LightningModule):
         # the eot embedding (eot_token is the highest number in each sequence)
         x = torch.where(dynamic_bools.unsqueeze(1),
                         x[torch.arange(x.shape[0]), tokenized_text.argmax(
-                            dim=-1) + self.ca_length],
+                            dim=-1) + self.eot_offset],
                         x[torch.arange(x.shape[0]), tokenized_text.argmax(
                             dim=-1)]
                         )
