@@ -1,0 +1,25 @@
+from pathlib import Path
+
+from torchvision import datasets
+
+if __name__ == '__main__':
+    root_dir = Path(__file__).parents[3] / 'data' / 'kinetics'
+    kinetics400_train = datasets.Kinetics(
+        root=root_dir.as_posix(),
+        frames_per_clip=2,
+        num_classes='400',
+        num_workers=4,
+        num_download_workers=4,
+        download=True,
+        split='train'
+    )
+
+    kinetics400_val = datasets.Kinetics(
+        root=root_dir.as_posix(),
+        frames_per_clip=2,
+        num_classes='400',
+        num_workers=4,
+        num_download_workers=4,
+        download=True,
+        split='val'
+    )
