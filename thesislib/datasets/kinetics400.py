@@ -5,7 +5,7 @@ from torchvision import datasets
 if __name__ == '__main__':
     root_dir = '/project/prjsloedeman/data'
     kinetics400_train = datasets.Kinetics(
-        root=root_dir.as_posix(),
+        root=root_dir,
         frames_per_clip=2,
         num_classes='400',
         num_workers=4,
@@ -15,7 +15,7 @@ if __name__ == '__main__':
     )
 
     kinetics400_val = datasets.Kinetics(
-        root=root_dir.as_posix(),
+        root=root_dir,
         frames_per_clip=2,
         num_classes='400',
         num_workers=4,
