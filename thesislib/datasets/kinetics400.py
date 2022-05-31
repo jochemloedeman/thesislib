@@ -11,15 +11,5 @@ if __name__ == '__main__':
         num_workers=4,
         num_download_workers=4,
         download=True,
-        split='train'
-    )
-
-    kinetics400_val = datasets.Kinetics(
-        root=root_dir,
-        frames_per_clip=2,
-        num_classes='400',
-        num_workers=4,
-        num_download_workers=4,
-        download=True,
         split='val'
     )
