@@ -3,7 +3,7 @@ from pathlib import Path
 from torchvision import datasets
 
 if __name__ == '__main__':
-    root_dir = Path(__file__).parents[3] / 'data' / 'kinetics'
+    root_dir = '/project/prjsloedeman/data'
     kinetics400_train = datasets.Kinetics(
         root=root_dir.as_posix(),
         frames_per_clip=2,
