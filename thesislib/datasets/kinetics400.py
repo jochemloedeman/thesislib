@@ -11,7 +11,7 @@ if __name__ == '__main__':
         num_classes='400',
         num_workers=4,
         num_download_workers=4,
-        download=True,
+        # download=True,
         split='val'
     )
     kinetics400_val = datasets.Kinetics(
@@ -20,6 +20,6 @@ if __name__ == '__main__':
         num_classes='400',
         num_workers=4,
         num_download_workers=4,
-        download=True,
+        # download=True,
         split='train'
     )
