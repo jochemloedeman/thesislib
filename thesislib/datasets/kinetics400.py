@@ -9,8 +9,8 @@ if __name__ == '__main__':
         root=root_dir,
         frames_per_clip=2,
         num_classes='400',
-        num_workers=4,
-        num_download_workers=4,
+        num_workers=1,
+        num_download_workers=1,
         download=True,
         split='train'
     )
