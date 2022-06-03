@@ -1,1 +1,1 @@
-
+from .kinetics400_datamodule import Kinetics400DataModule

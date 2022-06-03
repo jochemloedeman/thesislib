@@ -1,4 +1,3 @@
-import pytorch_lightning
 import torch
 import pytorch_lightning as pl
 from clip.simple_tokenizer import SimpleTokenizer
@@ -8,14 +7,14 @@ from torch import nn
 class ContextAddition(pl.LightningModule):
     def __init__(
             self,
-            clip_model,
+            embedding_dim,
             ca_length,
             ca_insertion,
             target_partition
     ):
 
         super().__init__()
-        embedding_dim = clip_model.token_embedding.embedding_dim
+        embedding_dim = embedding_dim
         ca_vectors = torch.empty(ca_length, embedding_dim, dtype=self.dtype)
         nn.init.normal_(ca_vectors, std=0.02)
         self.ca_vectors = nn.Parameter(ca_vectors)

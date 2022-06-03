@@ -46,7 +46,7 @@ class DynamicClip(LightningModule):
             self.context_addition = None
         else:
             self.context_addition = ContextAddition(
-                clip_model=clip_model,
+                embedding_dim=clip_model.token_embedding.embedding_dim,
                 ca_length=ca_length,
                 ca_insertion=ca_insertion,
                 target_partition=target_partition
