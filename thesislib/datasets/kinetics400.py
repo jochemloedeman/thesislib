@@ -15,7 +15,7 @@ from torchvision.datasets.utils import verify_str_arg, check_integrity, \
     download_url, download_and_extract_archive
 from torchvision.datasets.video_utils import VideoClips
 
-from thesislib.frame_extractor import FrameExtractor
+from thesislib.frame_extractor import FrameSampler
 
 
 class Kinetics(VisionDataset):
@@ -90,6 +90,7 @@ class Kinetics(VisionDataset):
     def __init__(
             self,
             root: str,
+            frames_per_vid: int,
             num_classes: str = "400",
             split: str = "train",
             transform: Optional[Callable] = None,
@@ -114,7 +115,7 @@ class Kinetics(VisionDataset):
         self.root = root
         self._legacy = _legacy
 
-        self.frame_extractor = FrameExtractor()
+        self.frame_sampler = FrameSampler(nr_frames=frames_per_vid)
 
         if _legacy:
             print("Using legacy structure")
@@ -239,7 +240,7 @@ class Kinetics(VisionDataset):
 
     def __getitem__(self, idx: int) -> Tuple[Tensor, int]:
         # video, audio, info, video_idx = self.video_clips.get_clip(idx)
-        frames = self.frame_extractor.extract(self.samples[idx][0])
+        frames = self.frame_sampler.extract(self.samples[idx][0])
         label = self.samples[idx][1]
 
         if self.transform is not None:

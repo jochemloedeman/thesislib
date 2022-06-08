@@ -44,13 +44,14 @@ class TemporalCLIP(pl.LightningModule):
         self.index_to_label = None
         self._freeze_components()
 
-        self.accuracy = torchmetrics.Accuracy(
+        self.top1_accuracy = torchmetrics.Accuracy(
             num_classes=self.temporal_dataset['number_of_classes'],
             average='none',
         )
-
-
-
+        self.top5_accuracy = torchmetrics.Accuracy(
+            num_classes=self.temporal_dataset['number_of_classes'],
+            top_k=5
+        )
 
     def forward(self, frames):
         batch_size, nr_frames, channels, height, width = frames.size()
@@ -95,21 +96,18 @@ class TemporalCLIP(pl.LightningModule):
         frames, labels = batch
         logits_per_video, logits_per_text = self(frames)
         preds_best = logits_per_video.argmax(dim=-1)
-        top1_accuracy = (labels == preds_best).float().mean()
-        self.log(
-            'top1_test_accuracy',
-            top1_accuracy,
-            prog_bar=True,
-            sync_dist=True
-        )
-        self.accuracy(preds_best, labels)
+        self.top5_accuracy(logits_per_video, labels)
+        self.top1_accuracy(preds_best, labels)
 
     def test_epoch_end(self, outputs) -> None:
-        acc_per_class = self.accuracy.compute()
+        acc_per_class = self.top1_accuracy.compute()
+        total_acc = acc_per_class.mean()
         temporal_acc = acc_per_class[self.temporal_dataset['temporal']].mean()
         static_acc = acc_per_class[self.temporal_dataset['static']].mean()
-        self.log('accuracy_temporal', temporal_acc)
-        self.log('accuracy_static', static_acc)
+        self.log('top1_accuracy_temporal', temporal_acc)
+        self.log('top1_accuracy_static', static_acc)
+        self.log('top1_accuracy_total', total_acc)
+        self.log('top5_accuracy_total', self.top5_accuracy)
 
     def _encode_text(self) -> None:
         eot_indices = (self.tokenized_prompts
@@ -162,7 +160,6 @@ class TemporalCLIP(pl.LightningModule):
         self.index_to_label = self.trainer.datamodule.index_to_label
         self._tokenize_classes()
         self._encode_text()
-
 
     def on_fit_start(self) -> None:
         self._tokenize_classes()

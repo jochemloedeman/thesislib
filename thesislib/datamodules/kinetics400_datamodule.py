@@ -6,7 +6,6 @@ import pytorchvideo.transforms
 import torch
 import torchvision.transforms
 from torch.utils.data import DataLoader
-from torchvision import datasets
 from torchvision.transforms import InterpolationMode
 
 from thesislib.datasets import Kinetics
@@ -18,10 +17,12 @@ class Kinetics400DataModule(pl.LightningDataModule):
             self,
             test_batch_size,
             num_workers,
+            frames_per_vid
     ):
         super().__init__()
         self.test_batch_size = test_batch_size
         self.num_workers = num_workers
+        self.frames_per_vid = frames_per_vid
 
     def setup(self, stage: Optional[str] = None) -> None:
         root_dir = pathlib.Path(__file__).parents[3] / 'data' / 'kinetics'
@@ -45,6 +46,7 @@ class Kinetics400DataModule(pl.LightningDataModule):
         ])
         self.kinetics_test = Kinetics(
             root=root_dir.as_posix(),
+            frames_per_vid=self.frames_per_vid,
             num_classes='400',
             split='val',
             transform=self.transforms
@@ -74,7 +76,7 @@ class Kinetics400DataModule(pl.LightningDataModule):
             for class_str in self.kinetics_test.classes
         ]
         self.prompts = [
-            f"a person that is {class_str}" for class_str in classes
+            f"a video of a someone who is {class_str}" for class_str in classes
         ]
         self.index_to_prompt = {
             idx: self.prompts[idx] for idx in range(len(self.prompts))

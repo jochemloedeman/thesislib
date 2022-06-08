@@ -4,7 +4,7 @@ import os
 import torchvision
 from torch.utils.data import Dataset
 
-from thesislib.frame_extractor import FrameExtractor
+from thesislib.frame_extractor import FrameSampler
 from thesislib.util import pre_caption
 
 
@@ -25,7 +25,7 @@ class MSRVTTFrames(Dataset):
         self.txt2vis = {}
         self.vis2txt = {}
 
-        self.frame_extractor = FrameExtractor(strategy=self.sample_strategy, sample_rate=self.sample_rate)
+        self.frame_extractor = FrameSampler(strategy=self.sample_strategy, sample_rate=self.sample_rate)
 
         txt_id = 0
         for vid_id, ann in enumerate(self.annotation):
