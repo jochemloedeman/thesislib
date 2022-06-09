@@ -133,7 +133,7 @@ class VideoFrameDataset(torch.utils.data.Dataset):
 
         self._parse_annotationfile()
         self._sanity_check_samples()
-        self._create_test_list()
+        # self._create_test_list()
 
     def _create_test_list(self):
         new_list = []
