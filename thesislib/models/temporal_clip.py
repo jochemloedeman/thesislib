@@ -148,6 +148,10 @@ class TemporalCLIP(pl.LightningModule):
 
     def _tokenize_classes(self) -> None:
         class_prompts = list(self.index_to_prompt.values())
+        class_prompts = [
+            "a video of someone who is " + prompt.lower()
+            for prompt in class_prompts
+        ]
         tokenized_prompts = clip.tokenize(class_prompts)
         self.tokenized_prompts = tokenized_prompts.to(self.device)
 

@@ -235,11 +235,9 @@ class Kinetics(VisionDataset):
         self.samples = new_samples
 
     def __len__(self) -> int:
-        # return self.video_clips.num_clips()
         return len(self.samples)
 
     def __getitem__(self, idx: int) -> Tuple[Tensor, int]:
-        # video, audio, info, video_idx = self.video_clips.get_clip(idx)
         frames = self.frame_sampler.extract(self.samples[idx][0])
         label = self.samples[idx][1]
 

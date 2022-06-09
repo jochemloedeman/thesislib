@@ -133,12 +133,12 @@ class VideoFrameDataset(torch.utils.data.Dataset):
 
         self._parse_annotationfile()
         self._sanity_check_samples()
-        # self._create_test_list()
+        self._create_test_list()
 
     def _create_test_list(self):
         new_list = []
         for record in self.video_list:
-            if os.path.basename(record.path) in ('1', '2', '3', '74225'):
+            if os.path.basename(record.path) in ('74225', '116154', '137878', '151151', '195025', '198186'):
                 new_list.append(record)
         self.video_list = new_list
 
