@@ -56,7 +56,7 @@ class SSV2DataModule(pl.LightningDataModule):
         ])
         self.ssv2_test = VideoFrameDataset(
             root_path=root_dir.as_posix(),
-            annotationfile_path=annotation_train_path.as_posix(),
+            annotationfile_path=annotation_val_path.as_posix(),
             imagefile_template='{:06d}.jpg',
             num_segments=self.frames_per_vid,
             frames_per_segment=1,
@@ -83,7 +83,8 @@ class SSV2DataModule(pl.LightningDataModule):
 
     def _calculate_index_to_prompt(self):
         self.index_to_prompt = {
-            int(index): prompt for prompt, index in self.labels.items()
+            int(index): prompt.lower()
+            for prompt, index in self.labels.items()
         }
 
     def _calculate_index_to_label(self):
