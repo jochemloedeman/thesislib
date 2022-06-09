@@ -18,13 +18,15 @@ class SSV2DataModule(pl.LightningDataModule):
             data_root,
             test_batch_size,
             num_workers,
-            frames_per_vid
+            frames_per_vid,
+            prompt_prefix
     ):
         super().__init__()
         self.data_root = data_root
         self.test_batch_size = test_batch_size
         self.num_workers = num_workers
         self.frames_per_vid = frames_per_vid
+        self.prompt_prefix = prompt_prefix
 
     def setup(self, stage: Optional[str] = None) -> None:
         root_dir = pathlib.Path(self.data_root) / 'something-something-v2'
@@ -83,7 +85,7 @@ class SSV2DataModule(pl.LightningDataModule):
 
     def _calculate_index_to_prompt(self):
         self.index_to_prompt = {
-            int(index): prompt.lower()
+            int(index): self.prompt_prefix + prompt.lower()
             for prompt, index in self.labels.items()
         }
 

@@ -97,10 +97,9 @@ class TemporalCLIP(pl.LightningModule):
     def test_step(self, batch, batch_idx):
         frames, labels = batch
         logits_per_video, logits_per_text = self(frames)
-        preds_best = logits_per_video.argmax(dim=-1)
         self.top1_accuracy(logits_per_video, labels)
         self.top5_accuracy(logits_per_video, labels)
-        self.classwise_accuracy(preds_best, labels)
+        self.classwise_accuracy(logits_per_video, labels)
 
     def test_epoch_end(self, outputs) -> None:
         acc_per_class = self.classwise_accuracy.compute()
