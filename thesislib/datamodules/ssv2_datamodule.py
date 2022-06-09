@@ -58,8 +58,8 @@ class SSV2DataModule(pl.LightningDataModule):
             root_path=root_dir.as_posix(),
             annotationfile_path=annotation_val_path.as_posix(),
             imagefile_template='{:06d}.jpg',
-            num_segments=1,
-            frames_per_segment=self.frames_per_vid,
+            num_segments=self.frames_per_vid,
+            frames_per_segment=1,
             transform=self.transforms
         )
         self._calculate_index_to_prompt()
