@@ -44,13 +44,17 @@ class TemporalCLIP(pl.LightningModule):
         self.index_to_label = None
         self._freeze_components()
 
-        self.top1_accuracy = torchmetrics.Accuracy(
+        self.classwise_accuracy = torchmetrics.Accuracy(
             num_classes=self.temporal_dataset['number_of_classes'],
             average='none',
         )
         self.top5_accuracy = torchmetrics.Accuracy(
             num_classes=self.temporal_dataset['number_of_classes'],
             top_k=5
+        )
+        self.top1_accuracy = torchmetrics.Accuracy(
+            num_classes=self.temporal_dataset['number_of_classes'],
+            top_k=1
         )
 
     def forward(self, frames):
@@ -96,17 +100,18 @@ class TemporalCLIP(pl.LightningModule):
         frames, labels = batch
         logits_per_video, logits_per_text = self(frames)
         preds_best = logits_per_video.argmax(dim=-1)
+        self.top1_accuracy(logits_per_video, labels)
         self.top5_accuracy(logits_per_video, labels)
-        self.top1_accuracy(preds_best, labels)
+        self.classwise_accuracy(preds_best, labels)
 
     def test_epoch_end(self, outputs) -> None:
-        acc_per_class = self.top1_accuracy.compute()
+        acc_per_class = self.classwise_accuracy.compute()
         total_acc = acc_per_class.mean()
         temporal_acc = acc_per_class[self.temporal_dataset['temporal']].mean()
         static_acc = acc_per_class[self.temporal_dataset['static']].mean()
-        self.log('top1_accuracy_temporal', temporal_acc)
-        self.log('top1_accuracy_static', static_acc)
-        self.log('top1_accuracy_total', total_acc)
+        self.log('accuracy_temporal', temporal_acc)
+        self.log('accuracy_static', static_acc)
+        self.log('top1_accuracy_total', self.top1_accuracy)
         self.log('top5_accuracy_total', self.top5_accuracy)
 
     def _encode_text(self) -> None:
