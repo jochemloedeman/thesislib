@@ -46,10 +46,10 @@ class SSV2DataModule(pl.LightningDataModule):
                 max_size=None, antialias=None
             ),
             torchvision.transforms.CenterCrop(size=224),
-            torchvision.transforms.Normalize(
-                mean=(0.48145466, 0.4578275, 0.40821073),
-                std=(0.26862954, 0.26130258, 0.27577711)
-            ),
+            # torchvision.transforms.Normalize(
+            #     mean=(0.48145466, 0.4578275, 0.40821073),
+            #     std=(0.26862954, 0.26130258, 0.27577711)
+            # ),
             # torchvision.transforms.Lambda(
             #     lambda x: torch.permute(x, dims=(1, 0, 2, 3))
             # ),
