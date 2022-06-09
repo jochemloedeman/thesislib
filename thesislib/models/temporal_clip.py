@@ -1,5 +1,5 @@
 from typing import Dict, Union
-
+import torchvision
 import pytorch_lightning as pl
 import torch
 import torchmetrics
@@ -99,14 +99,12 @@ class TemporalCLIP(pl.LightningModule):
     def test_step(self, batch, batch_idx):
         frames, labels = batch
         logits_per_video, logits_per_text = self(frames)
-        preds_best = logits_per_video.argmax(dim=-1)
         self.top1_accuracy(logits_per_video, labels)
         self.top5_accuracy(logits_per_video, labels)
-        self.classwise_accuracy(preds_best, labels)
+        self.classwise_accuracy(logits_per_video, labels)
 
     def test_epoch_end(self, outputs) -> None:
         acc_per_class = self.classwise_accuracy.compute()
-        total_acc = acc_per_class.mean()
         temporal_acc = acc_per_class[self.temporal_dataset['temporal']].mean()
         static_acc = acc_per_class[self.temporal_dataset['static']].mean()
         self.log('accuracy_temporal', temporal_acc)
