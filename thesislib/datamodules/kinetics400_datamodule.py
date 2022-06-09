@@ -15,17 +15,19 @@ from thesislib.temporal import TemporalLabel
 class Kinetics400DataModule(pl.LightningDataModule):
     def __init__(
             self,
+            data_root,
             test_batch_size,
             num_workers,
             frames_per_vid
     ):
         super().__init__()
+        self.data_root = data_root
         self.test_batch_size = test_batch_size
         self.num_workers = num_workers
         self.frames_per_vid = frames_per_vid
 
     def setup(self, stage: Optional[str] = None) -> None:
-        root_dir = pathlib.Path(__file__).parents[3] / 'data' / 'kinetics'
+        root_dir = pathlib.Path(self.data_root) / 'kinetics'
         self.transforms = torchvision.transforms.Compose([
             torchvision.transforms.Lambda(
                 lambda x: torch.permute(x, dims=(1, 0, 2, 3))

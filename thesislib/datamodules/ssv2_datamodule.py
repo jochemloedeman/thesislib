@@ -3,8 +3,6 @@ import pathlib
 from typing import Optional
 
 import pytorch_lightning as pl
-import pytorchvideo.transforms
-import torch
 import torchvision.transforms
 from torch.utils.data import DataLoader
 from torchvision.transforms import InterpolationMode
@@ -17,17 +15,19 @@ from thesislib.temporal import TemporalLabel
 class SSV2DataModule(pl.LightningDataModule):
     def __init__(
             self,
+            data_root,
             test_batch_size,
             num_workers,
             frames_per_vid
     ):
         super().__init__()
+        self.data_root = data_root
         self.test_batch_size = test_batch_size
         self.num_workers = num_workers
         self.frames_per_vid = frames_per_vid
 
     def setup(self, stage: Optional[str] = None) -> None:
-        root_dir = pathlib.Path(__file__).parents[3] / 'data' / 'something-something-v2'
+        root_dir = pathlib.Path(self.data_root) / 'something-something-v2'
         annotation_train_path = root_dir / 'something-something-v2-train-processed.txt'
         annotation_val_path = root_dir / 'something-something-v2-train-processed.txt'
         labels_path = root_dir / 'labels.json'
