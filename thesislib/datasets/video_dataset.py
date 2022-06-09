@@ -145,11 +145,12 @@ class VideoFrameDataset(torch.utils.data.Dataset):
     def _load_image(self, directory: str, idx: int) -> Image.Image:
         return Image.open(os.path.join(directory,
                                        self.imagefile_template.format(
-                                           idx+1))).convert('RGB')
+                                           idx + 1))).convert('RGB')
 
     def _parse_annotationfile(self):
         self.video_list = [VideoRecord(x.strip().split(), self.root_path) for x
                            in open(self.annotationfile_path)]
+        self._remove_corruptions()
 
     def _sanity_check_samples(self):
         for record in self.video_list:
@@ -180,16 +181,16 @@ class VideoFrameDataset(torch.utils.data.Dataset):
         # choose start indices that are perfectly evenly spread across the video frames.
         if self.test_mode:
             distance_between_indices = (
-                                                   record.num_frames - self.frames_per_segment + 1) / float(
+                                               record.num_frames - self.frames_per_segment + 1) / float(
                 self.num_segments)
 
             start_indices = np.array([
-                                         int(distance_between_indices / 2.0 + distance_between_indices * x)
-                                         for x in range(self.num_segments)])
+                int(distance_between_indices / 2.0 + distance_between_indices * x)
+                for x in range(self.num_segments)])
         # randomly sample start indices that are approximately evenly spread across the video frames.
         else:
             max_valid_start_index = (
-                                                record.num_frames - self.frames_per_segment + 1) // self.num_segments
+                                            record.num_frames - self.frames_per_segment + 1) // self.num_segments
 
             start_indices = np.multiply(list(range(self.num_segments)),
                                         max_valid_start_index) + \
@@ -270,6 +271,16 @@ class VideoFrameDataset(torch.utils.data.Dataset):
 
     def __len__(self):
         return len(self.video_list)
+
+    def _remove_corruptions(self):
+        with open(os.path.join(self.root_path, 'corrupt.txt')) as corrupt_file:
+            corrupt_paths = corrupt_file.readlines()
+            corrupt_paths = [path.strip() for path in corrupt_paths]
+
+        new_video_list = [record for record in self.video_list
+                          if record.path not in corrupt_paths]
+
+        self.video_list = new_video_list
 
 
 class ImglistToTensor(torch.nn.Module):
