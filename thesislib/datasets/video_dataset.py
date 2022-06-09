@@ -278,7 +278,6 @@ class VideoFrameDataset(torch.utils.data.Dataset):
         new_video_list = [
             record for record in self.video_list
             if record.num_frames >= self.num_segments * self.frames_per_segment
-            and os.path.basename(record.path) not in ('99996', '82682')
         ]
 
         self.video_list = new_video_list
