@@ -138,7 +138,8 @@ class VideoFrameDataset(torch.utils.data.Dataset):
     def _create_test_list(self):
         new_list = []
         for record in self.video_list:
-            if os.path.basename(record.path) in ('74225', '116154', '137878', '151151', '195025', '198186'):
+            if os.path.basename(record.path) in (
+            '74225', '116154', '137878', '151151', '195025', '198186'):
                 new_list.append(record)
         self.video_list = new_list
 
@@ -273,12 +274,10 @@ class VideoFrameDataset(torch.utils.data.Dataset):
         return len(self.video_list)
 
     def _remove_corruptions(self):
-        with open(os.path.join(self.root_path, 'corrupt.txt')) as corrupt_file:
-            corrupt_paths = corrupt_file.readlines()
-            corrupt_paths = [path.strip() for path in corrupt_paths]
-
-        new_video_list = [record for record in self.video_list
-                          if record.path not in corrupt_paths]
+        new_video_list = [
+            record for record in self.video_list
+            if record.num_frames < self.num_segments * self.frames_per_segment
+        ]
 
         self.video_list = new_video_list
 
