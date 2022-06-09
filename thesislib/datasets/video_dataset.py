@@ -113,6 +113,7 @@ class VideoFrameDataset(torch.utils.data.Dataset):
 
     """
 
+
     def __init__(self,
                  root_path: str,
                  annotationfile_path: str,
@@ -276,7 +277,7 @@ class VideoFrameDataset(torch.utils.data.Dataset):
     def _remove_corruptions(self):
         new_video_list = [
             record for record in self.video_list
-            if record.num_frames < self.num_segments * self.frames_per_segment
+            if record.num_frames >= self.num_segments * self.frames_per_segment
         ]
 
         self.video_list = new_video_list
