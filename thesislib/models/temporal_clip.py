@@ -49,11 +49,9 @@ class TemporalCLIP(pl.LightningModule):
             average='none',
         )
         self.top5_accuracy = torchmetrics.Accuracy(
-            num_classes=self.temporal_dataset['number_of_classes'],
             top_k=5
         )
         self.top1_accuracy = torchmetrics.Accuracy(
-            num_classes=self.temporal_dataset['number_of_classes'],
             top_k=1
         )
 
@@ -152,10 +150,6 @@ class TemporalCLIP(pl.LightningModule):
 
     def _tokenize_classes(self) -> None:
         class_prompts = list(self.index_to_prompt.values())
-        class_prompts = [
-            "a video of someone who is " + prompt.lower()
-            for prompt in class_prompts
-        ]
         tokenized_prompts = clip.tokenize(class_prompts)
         self.tokenized_prompts = tokenized_prompts.to(self.device)
 
