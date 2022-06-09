@@ -29,7 +29,7 @@ class SSV2DataModule(pl.LightningDataModule):
     def setup(self, stage: Optional[str] = None) -> None:
         root_dir = pathlib.Path(self.data_root) / 'something-something-v2'
         annotation_train_path = root_dir / 'something-something-v2-train-processed.txt'
-        annotation_val_path = root_dir / 'something-something-v2-train-processed.txt'
+        annotation_val_path = root_dir / 'something-something-v2-validation-processed.txt'
         labels_path = root_dir / 'labels.json'
 
         with open(labels_path, 'r') as label_file:
