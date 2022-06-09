@@ -56,7 +56,7 @@ class SSV2DataModule(pl.LightningDataModule):
         ])
         self.ssv2_test = VideoFrameDataset(
             root_path=root_dir.as_posix(),
-            annotationfile_path=annotation_train_path.as_posix(),
+            annotationfile_path=annotation_val_path.as_posix(),
             imagefile_template='{:06d}.jpg',
             num_segments=1,
             frames_per_segment=self.frames_per_vid,
