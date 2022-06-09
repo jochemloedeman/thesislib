@@ -1,1 +1,2 @@
 from .kinetics400_datamodule import Kinetics400DataModule
+from .ssv2_datamodule import SSV2DataModule
