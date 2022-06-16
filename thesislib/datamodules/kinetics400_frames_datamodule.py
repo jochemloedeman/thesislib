@@ -52,7 +52,7 @@ class Kinetics400FramesDataModule(pl.LightningDataModule):
         self.kinetics_train = VideoFrameDataset(
             root_path=root_dir.as_posix(),
             annotationfile_path=annotation_train_path.as_posix(),
-            imagefile_template='frame_{:12d}.jpg',
+            imagefile_template='frame_{:012d}.jpg',
             num_segments=self.frames_per_vid,
             frames_per_segment=1,
             transform=self.transforms
@@ -60,7 +60,7 @@ class Kinetics400FramesDataModule(pl.LightningDataModule):
         self.kinetics_val = VideoFrameDataset(
             root_path=root_dir.as_posix(),
             annotationfile_path=annotation_val_path.as_posix(),
-            imagefile_template='frame_{:12d}.jpg',
+            imagefile_template='frame_{:012d}.jpg',
             num_segments=self.frames_per_vid,
             frames_per_segment=1,
             transform=self.transforms
@@ -68,7 +68,7 @@ class Kinetics400FramesDataModule(pl.LightningDataModule):
         self.kinetics_test = VideoFrameDataset(
             root_path=root_dir.as_posix(),
             annotationfile_path=annotation_test_path.as_posix(),
-            imagefile_template='frame_{:12d}.jpg',
+            imagefile_template='frame_{:012d}.jpg',
             num_segments=self.frames_per_vid,
             frames_per_segment=1,
             transform=self.transforms
