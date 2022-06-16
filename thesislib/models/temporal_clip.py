@@ -96,6 +96,9 @@ class TemporalCLIP(pl.LightningModule):
 
     def test_step(self, batch, batch_idx):
         frames, labels = batch
+        to_image = torchvision.transforms.ToPILImage()
+        image = to_image(frames[0][2])
+        caption = self.index_to_prompt[labels[0].item()]
         logits_per_video, logits_per_text = self(frames)
         self.top1_accuracy(logits_per_video, labels)
         self.top5_accuracy(logits_per_video, labels)

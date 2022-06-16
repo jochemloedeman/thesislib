@@ -18,13 +18,15 @@ class Kinetics400DataModule(pl.LightningDataModule):
             data_root,
             test_batch_size,
             num_workers,
-            frames_per_vid
+            frames_per_vid,
+            prompt_prefix
     ):
         super().__init__()
         self.data_root = data_root
         self.test_batch_size = test_batch_size
         self.num_workers = num_workers
         self.frames_per_vid = frames_per_vid
+        self.prompt_prefix = prompt_prefix
 
     def setup(self, stage: Optional[str] = None) -> None:
         root_dir = pathlib.Path(self.data_root) / 'kinetics'
@@ -78,7 +80,7 @@ class Kinetics400DataModule(pl.LightningDataModule):
             for class_str in self.kinetics_test.classes
         ]
         self.prompts = [
-            f"a video of a someone who is {class_str}" for class_str in classes
+            f"a video of {class_str}" for class_str in classes
         ]
         self.index_to_prompt = {
             idx: self.prompts[idx] for idx in range(len(self.prompts))
