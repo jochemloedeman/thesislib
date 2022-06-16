@@ -147,7 +147,7 @@ class VideoFrameDataset(torch.utils.data.Dataset):
     def _load_image(self, directory: str, idx: int) -> Image.Image:
         return Image.open(os.path.join(directory,
                                        self.imagefile_template.format(
-                                           idx + 1))).convert('RGB')
+                                           idx))).convert('RGB')
 
     def _parse_annotationfile(self):
         self.video_list = [VideoRecord(x.strip().split(), self.root_path) for x
