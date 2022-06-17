@@ -16,6 +16,7 @@ class SSV2DataModule(pl.LightningDataModule):
     def __init__(
             self,
             data_root,
+            train_batch_size,
             test_batch_size,
             num_workers,
             frames_per_vid,
@@ -23,6 +24,7 @@ class SSV2DataModule(pl.LightningDataModule):
     ):
         super().__init__()
         self.data_root = data_root
+        self.train_batch_size = train_batch_size
         self.test_batch_size = test_batch_size
         self.num_workers = num_workers
         self.frames_per_vid = frames_per_vid

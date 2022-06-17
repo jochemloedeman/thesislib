@@ -4,7 +4,8 @@ from clip.simple_tokenizer import SimpleTokenizer
 from pytorch_lightning import LightningModule
 from torch.nn.functional import cross_entropy
 
-from . import ContextAddition, DomainAdaptation, LightningClip
+from . import LightningClip
+from ..components import ContextAddition, DomainAdaptation
 from ..metrics import PartitionRecall
 
 

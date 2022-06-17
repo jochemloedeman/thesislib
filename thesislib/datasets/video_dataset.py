@@ -113,7 +113,6 @@ class VideoFrameDataset(torch.utils.data.Dataset):
 
     """
 
-
     def __init__(self,
                  root_path: str,
                  annotationfile_path: str,
@@ -134,13 +133,13 @@ class VideoFrameDataset(torch.utils.data.Dataset):
 
         self._parse_annotationfile()
         self._sanity_check_samples()
-        # self._create_test_list()
+        self._create_test_list()
 
     def _create_test_list(self):
         new_list = []
         for record in self.video_list:
             if os.path.basename(record.path) in (
-            '74225', '116154', '137878', '151151', '195025', '198186'):
+                    '74225', '116154', '137878', '151151', '195025', '198186'):
                 new_list.append(record)
         self.video_list = new_list
 
@@ -152,7 +151,7 @@ class VideoFrameDataset(torch.utils.data.Dataset):
     def _parse_annotationfile(self):
         self.video_list = [VideoRecord(x.strip().split(), self.root_path) for x
                            in open(self.annotationfile_path)]
-        self._remove_corruptions()
+        self._remove_incompatibles()
 
     def _sanity_check_samples(self):
         for record in self.video_list:
@@ -190,16 +189,23 @@ class VideoFrameDataset(torch.utils.data.Dataset):
                 int(distance_between_indices / 2.0 + distance_between_indices * x)
                 for x in range(self.num_segments)])
         # randomly sample start indices that are approximately evenly spread across the video frames.
+        # else:
+        #     max_valid_start_index = (
+        #                                     record.num_frames - self.frames_per_segment + 1) // self.num_segments
+        #
+        #     start_indices = np.multiply(list(range(self.num_segments)),
+        #                                 max_valid_start_index) + \
+        #                     np.random.randint(max_valid_start_index,
+        #                                       size=self.num_segments)
+        #
+        # return start_indices
         else:
-            max_valid_start_index = (
-                                            record.num_frames - self.frames_per_segment + 1) // self.num_segments
-
-            start_indices = np.multiply(list(range(self.num_segments)),
-                                        max_valid_start_index) + \
-                            np.random.randint(max_valid_start_index,
-                                              size=self.num_segments)
-
-        return start_indices
+            frame_interval = record.num_frames / self.num_segments
+            segment_indices = [
+                round(x * frame_interval + frame_interval // 2)
+                for x in range(self.num_segments)
+            ]
+            return np.array(segment_indices)
 
     def __getitem__(self, idx: int) -> Union[
         Tuple[List[Image.Image], Union[int, List[int]]],
@@ -274,10 +280,12 @@ class VideoFrameDataset(torch.utils.data.Dataset):
     def __len__(self):
         return len(self.video_list)
 
-    def _remove_corruptions(self):
+    def _remove_incompatibles(self):
         new_video_list = [
             record for record in self.video_list
-            if record.num_frames >= self.num_segments * self.frames_per_segment
+            if record.num_frames >=
+            (self.num_segments * self.frames_per_segment
+             + record.num_frames // self.num_segments)
         ]
 
         self.video_list = new_video_list
