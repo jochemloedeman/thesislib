@@ -191,14 +191,16 @@ class TemporalCLIP(pl.LightningModule):
         if video.dim == 4:
             video = video.unsqueeze(0)
         batch_size, nr_frames, channels, height, width = video.size()
-        visual_context = self.visual_context(
-            video.permute(0, 2, 1, 3, 4)
-        )
+        if self.visual_context:
+            visual_context = self.visual_context(
+                video.permute(0, 2, 1, 3, 4)
+            )
         flattened_video = video.reshape(-1, channels, height, width)
         video_features = self.clip_model.visual(
             flattened_video.type(self.dtype)
         )
         video_features = video_features.reshape(batch_size, nr_frames, -1)
+        return video_features
 
     def _tokenize_classes(self) -> None:
         class_prompts = list(self.index_to_prompt.values())
