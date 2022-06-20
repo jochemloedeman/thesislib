@@ -82,7 +82,7 @@ class TemporalCLIP(pl.LightningModule):
         video_features = video_features.mean(dim=1)
         video_features = video_features / video_features.norm(dim=1,
                                                               keepdim=True)
-
+        print(video_features.shape)
         text_features = self.encoded_text
         text_features = text_features / text_features.norm(dim=1,
                                                            keepdim=True)
