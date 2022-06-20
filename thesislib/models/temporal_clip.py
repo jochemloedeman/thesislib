@@ -222,18 +222,21 @@ class TemporalCLIP(pl.LightningModule):
         if video.dim == 4:
             video = video.unsqueeze(0)
         pred_frames = video[:, self.pred_frames]
+        print(pred_frames.shape)
         if self.visual_context:
             visual_context = self.visual_context(
                 video.permute(0, 2, 1, 3, 4)
             )
             video_features = self._modified_visual_encode(pred_frames,
                                                           visual_context)
+            print(video_features.shape)
         else:
             video_features = self._modified_visual_encode(pred_frames)
 
         video_features = video_features.reshape(len(video),
                                                 self.nr_pred_frames,
                                                 -1)
+        print(video_features.shape)
         return video_features
 
     def _modified_visual_encode(self, x, context=None):
