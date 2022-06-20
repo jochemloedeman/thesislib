@@ -4,9 +4,12 @@ from . import S3D
 
 
 class VisualContext(pl.LightningModule):
-    def __init__(self, num_classes):
+    def __init__(self, nr_output_vectors, vector_dim):
         super().__init__()
-        self.s3d = S3D(num_classes)
+        self.nr_output_vectors = nr_output_vectors
+        self.vector_dim = vector_dim
+        self.s3d = S3D(nr_output_vectors * vector_dim)
 
     def forward(self, frames):
-        return self.s3d(frames)
+        flat_embeddings = self.s3d(frames)
+        return flat_embeddings.reshape(-1, self.nr_output_vectors, self.vector_dim)

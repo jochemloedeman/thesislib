@@ -22,7 +22,7 @@ class Kinetics400FramesDataModule(pl.LightningDataModule):
             train_batch_size,
             test_batch_size,
             num_workers,
-            frames_per_vid,
+            nr_frames,
             prompt_prefix
     ):
         super().__init__()
@@ -30,7 +30,7 @@ class Kinetics400FramesDataModule(pl.LightningDataModule):
         self.train_batch_size = train_batch_size
         self.test_batch_size = test_batch_size
         self.num_workers = num_workers
-        self.frames_per_vid = frames_per_vid
+        self.nr_frames = nr_frames
         self.prompt_prefix = prompt_prefix
 
     def setup(self, stage: Optional[str] = None) -> None:
@@ -58,7 +58,7 @@ class Kinetics400FramesDataModule(pl.LightningDataModule):
             root_path=(root_dir / 'frames').as_posix(),
             annotationfile_path=annotation_train_path.as_posix(),
             imagefile_template='frame_{:012d}.jpg',
-            num_segments=self.frames_per_vid,
+            num_segments=self.nr_frames,
             frames_per_segment=1,
             transform=self.transforms
         )
@@ -66,7 +66,7 @@ class Kinetics400FramesDataModule(pl.LightningDataModule):
             root_path=(root_dir / 'frames').as_posix(),
             annotationfile_path=annotation_val_path.as_posix(),
             imagefile_template='frame_{:012d}.jpg',
-            num_segments=self.frames_per_vid,
+            num_segments=self.nr_frames,
             frames_per_segment=1,
             transform=self.transforms
         )
@@ -74,7 +74,7 @@ class Kinetics400FramesDataModule(pl.LightningDataModule):
             root_path=(root_dir / 'frames').as_posix(),
             annotationfile_path=annotation_val_path.as_posix(),
             imagefile_template='frame_{:012d}.jpg',
-            num_segments=self.frames_per_vid,
+            num_segments=self.nr_frames,
             frames_per_segment=1,
             transform=self.transforms
         )

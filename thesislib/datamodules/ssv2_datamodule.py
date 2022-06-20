@@ -19,7 +19,7 @@ class SSV2DataModule(pl.LightningDataModule):
             train_batch_size,
             test_batch_size,
             num_workers,
-            frames_per_vid,
+            nr_frames,
             prompt_prefix
     ):
         super().__init__()
@@ -27,7 +27,7 @@ class SSV2DataModule(pl.LightningDataModule):
         self.train_batch_size = train_batch_size
         self.test_batch_size = test_batch_size
         self.num_workers = num_workers
-        self.frames_per_vid = frames_per_vid
+        self.nr_frames = nr_frames
         self.prompt_prefix = prompt_prefix
 
     def setup(self, stage: Optional[str] = None) -> None:
@@ -41,10 +41,6 @@ class SSV2DataModule(pl.LightningDataModule):
 
         self.transforms = torchvision.transforms.Compose([
             ImglistToTensor(),
-            # torchvision.transforms.Lambda(
-            #     lambda x: torch.permute(x, dims=(1, 0, 2, 3))
-            # ),
-            # pytorchvideo.transforms.ConvertUint8ToFloat(),
             torchvision.transforms.Resize(
                 size=224, interpolation=InterpolationMode.BICUBIC,
                 max_size=None, antialias=None
@@ -54,15 +50,12 @@ class SSV2DataModule(pl.LightningDataModule):
                 mean=(0.48145466, 0.4578275, 0.40821073),
                 std=(0.26862954, 0.26130258, 0.27577711)
             ),
-            # torchvision.transforms.Lambda(
-            #     lambda x: torch.permute(x, dims=(1, 0, 2, 3))
-            # ),
         ])
         self.ssv2_test = VideoFrameDataset(
             root_path=root_dir.as_posix(),
             annotationfile_path=annotation_val_path.as_posix(),
             imagefile_template='{:06d}.jpg',
-            num_segments=self.frames_per_vid,
+            num_segments=self.nr_frames,
             frames_per_segment=1,
             transform=self.transforms
         )

@@ -1,4 +1,6 @@
 from typing import Dict, Union
+
+import numpy as np
 import pytorch_lightning as pl
 import torch
 import torchmetrics
@@ -16,6 +18,8 @@ class TemporalCLIP(pl.LightningModule):
     def __init__(
             self,
             clip_architecture: str,
+            nr_pred_frames: int,
+            nr_context_frames: int,
             da_settings: Union[Dict, None],
             ca_settings: Union[Dict, None],
             vc_settings: Union[Dict, None],
@@ -26,6 +30,9 @@ class TemporalCLIP(pl.LightningModule):
 
         self.clip_model, _ = clip.load(clip_architecture, device='cpu')
         self.temporal_dataset = temporal_dataset
+        self.nr_pred_frames = nr_pred_frames
+        self.nr_context_frames = nr_context_frames
+        self._get_pred_frames()
         if not ca_settings:
             self.context_addition = None
         else:
@@ -71,9 +78,6 @@ class TemporalCLIP(pl.LightningModule):
         )
 
     def forward(self, frames):
-        # batch_size, nr_frames, channels, height, width = frames.size()
-        # flattened_frames = frames.reshape(-1, channels, height, width)
-
         video_features = self.encode_image(frames)
         video_features = video_features.mean(dim=1)
         video_features = video_features / video_features.norm(dim=1,
@@ -173,6 +177,9 @@ class TemporalCLIP(pl.LightningModule):
                 dynamic_bools
             )
 
+        self.encoded_text = self._modified_text_encode(x, eot_indices)
+
+    def _modified_text_encode(self, x, eot_indices):
         x = x + self.clip_model.positional_embedding.type(self.dtype)
         x = x.permute(1, 0, 2)  # NLD -> LND
         x = self.clip_model.transformer(x)
@@ -184,23 +191,77 @@ class TemporalCLIP(pl.LightningModule):
         x = x[torch.arange(x.shape[0]), eot_indices]
 
         x = x @ self.clip_model.text_projection
-
-        self.encoded_text = x
+        return x
 
     def encode_image(self, video):
         if video.dim == 4:
             video = video.unsqueeze(0)
-        batch_size, nr_frames, channels, height, width = video.size()
+        pred_frames = video[:, self.pred_frames]
         if self.visual_context:
             visual_context = self.visual_context(
                 video.permute(0, 2, 1, 3, 4)
             )
-        flattened_video = video.reshape(-1, channels, height, width)
-        video_features = self.clip_model.visual(
-            flattened_video.type(self.dtype)
-        )
-        video_features = video_features.reshape(batch_size, nr_frames, -1)
+            video_features = self._modified_visual_encode(pred_frames,
+                                                          visual_context)
+        else:
+            video_features = self._modified_visual_encode(pred_frames)
+
+        video_features = video_features.reshape(len(video),
+                                                self.nr_pred_frames,
+                                                -1)
         return video_features
+
+    def _modified_visual_encode(self, x, context=None):
+        batch_size, nr_frames, channels, height, width = x.size()
+        x = self.clip_model.visual.conv1(x.view(-1, channels, height, width))
+        x = x.reshape(x.shape[0], x.shape[1], -1)
+        x = x.permute(0, 2, 1)  # shape = [*, grid ** 2, width]
+        x = torch.cat(
+            [self.clip_model.visual.class_embedding.to(x.dtype)
+             + torch.zeros(x.shape[0], 1, x.shape[-1],
+                           dtype=x.dtype, device=x.device),
+             x],
+            dim=1
+        )
+        x = x + self.clip_model.visual.positional_embedding.to(x.dtype)
+        if context is not None:
+            context = (context.unsqueeze(1)
+                       + torch.zeros(batch_size, nr_frames,
+                                     self.visual_context.nr_output_vectors,
+                                     x.shape[-1]).type_as(x)
+                       )
+
+            x = torch.cat(
+                [x.view(batch_size, nr_frames, *x.shape[1:]), context],
+                dim=2
+            )
+            x = x.reshape(-1, *x.shape[2:])
+        x = self.clip_model.visual.ln_pre(x)
+
+        x = x.permute(1, 0, 2)  # NLD -> LND
+        x = self.clip_model.visual.transformer(x)
+        x = x.permute(1, 0, 2)  # LND -> NLD
+
+        x = self.clip_model.visual.ln_post(x[:, 0, :])
+
+        if self.clip_model.visual.proj is not None:
+            x = x @ self.clip_model.visual.proj
+
+        return x
+
+    def _get_pred_frames(self):
+        if self.nr_pred_frames == 1:
+            pred_frames = [self.nr_context_frames // 2]
+        elif self.nr_pred_frames == 2:
+            pred_frames = [self.nr_context_frames // 3,
+                           self.nr_context_frames // (3 / 2)]
+        else:
+            pred_frames = np.linspace(start=0,
+                                      stop=self.nr_context_frames - 1,
+                                      num=self.nr_pred_frames,
+                                      endpoint=True).tolist()
+
+        self.pred_frames = pred_frames
 
     def _tokenize_classes(self) -> None:
         class_prompts = list(self.index_to_prompt.values())
