@@ -89,6 +89,7 @@ class TemporalCLIP(pl.LightningModule):
         logit_scale = self.clip_model.logit_scale.exp()
         logits_per_video = logit_scale * video_features @ text_features.t()
         logits_per_text = logits_per_video.t()
+        print(logits_per_video.shape)
         return logits_per_video, logits_per_text
 
     def configure_optimizers(self):
