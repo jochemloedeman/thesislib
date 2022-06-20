@@ -103,7 +103,7 @@ class TemporalCLIP(pl.LightningModule):
         return {'optimizer': optimizer,
                 'lr_scheduler': {
                     'scheduler': scheduler,
-                    'monitor': 'validation_total_r@5',
+                    'monitor': 'val_loss',
                 }}
 
     def training_step(self, batch):
