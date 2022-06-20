@@ -82,14 +82,12 @@ class TemporalCLIP(pl.LightningModule):
         video_features = video_features.mean(dim=1)
         video_features = video_features / video_features.norm(dim=1,
                                                               keepdim=True)
-        print(video_features.shape)
         text_features = self.encoded_text
         text_features = text_features / text_features.norm(dim=1,
                                                            keepdim=True)
         logit_scale = self.clip_model.logit_scale.exp()
         logits_per_video = logit_scale * video_features @ text_features.t()
         logits_per_text = logits_per_video.t()
-        print(logits_per_video.shape)
         return logits_per_video, logits_per_text
 
     def configure_optimizers(self):
@@ -110,9 +108,7 @@ class TemporalCLIP(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         frames, labels = batch
         logits_per_video, logits_per_text = self(frames)
-        image_loss = cross_entropy(logits_per_video, labels)
-        text_loss = cross_entropy(logits_per_text, labels)
-        loss = (image_loss + text_loss) / 2
+        loss = cross_entropy(logits_per_video, labels)
         self.log('train_loss', loss)
 
         return loss
@@ -120,9 +116,7 @@ class TemporalCLIP(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         frames, labels = batch
         logits_per_video, logits_per_text = self(frames)
-        image_loss = cross_entropy(logits_per_video, labels)
-        text_loss = cross_entropy(logits_per_text, labels)
-        loss = (image_loss + text_loss) / 2
+        loss = cross_entropy(logits_per_video, labels)
         self.log('val_loss', loss)
         self.top1_accuracy(logits_per_video, labels)
         self.top5_accuracy(logits_per_video, labels)
@@ -223,21 +217,18 @@ class TemporalCLIP(pl.LightningModule):
         if video.dim == 4:
             video = video.unsqueeze(0)
         pred_frames = video[:, self.pred_frames]
-        print(pred_frames.shape)
         if self.visual_context:
             visual_context = self.visual_context(
                 video.permute(0, 2, 1, 3, 4)
             )
             video_features = self._modified_visual_encode(pred_frames,
                                                           visual_context)
-            print(video_features.shape)
         else:
             video_features = self._modified_visual_encode(pred_frames)
 
         video_features = video_features.reshape(len(video),
                                                 self.nr_pred_frames,
                                                 -1)
-        print(video_features.shape)
         return video_features
 
     def _modified_visual_encode(self, x, context=None):
