@@ -133,7 +133,7 @@ class VideoFrameDataset(torch.utils.data.Dataset):
 
         self._parse_annotationfile()
         self._sanity_check_samples()
-        self._create_test_list()
+        # self._create_test_list()
 
     def _create_test_list(self):
         new_list = []
@@ -266,7 +266,7 @@ class VideoFrameDataset(torch.utils.data.Dataset):
 
             # load self.frames_per_segment consecutive frames
             for _ in range(self.frames_per_segment):
-                image = self._load_image(record.path, frame_index + 1)
+                image = self._load_image(record.path, frame_index)
                 images.append(image)
 
                 if frame_index < record.end_frame:

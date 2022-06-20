@@ -72,7 +72,7 @@ class Kinetics400FramesDataModule(pl.LightningDataModule):
         )
         self.kinetics_test = VideoFrameDataset(
             root_path=(root_dir / 'frames').as_posix(),
-            annotationfile_path=annotation_val_path.as_posix(),
+            annotationfile_path=annotation_test_path.as_posix(),
             imagefile_template='frame_{:012d}.jpg',
             num_segments=self.nr_frames,
             frames_per_segment=1,

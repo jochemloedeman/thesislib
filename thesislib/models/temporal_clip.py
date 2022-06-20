@@ -130,9 +130,6 @@ class TemporalCLIP(pl.LightningModule):
 
     def test_step(self, batch, batch_idx):
         frames, labels = batch
-        # to_image = torchvision.transforms.ToPILImage()
-        # image = to_image(frames[0][2])
-        # caption = self.index_to_prompt[labels[0].item()]
         logits_per_video, logits_per_text = self(frames)
         self.top1_accuracy(logits_per_video, labels)
         self.top5_accuracy(logits_per_video, labels)
@@ -140,11 +137,25 @@ class TemporalCLIP(pl.LightningModule):
         self.classwise_top5_accuracy(logits_per_video, labels)
 
     def test_epoch_end(self, outputs) -> None:
-        acc_per_class = self.classwise_top1_accuracy.compute()
-        temporal_acc = acc_per_class[self.temporal_dataset['temporal']].mean()
-        static_acc = acc_per_class[self.temporal_dataset['static']].mean()
-        self.log('test_accuracy_temporal', temporal_acc)
-        self.log('test_accuracy_static', static_acc)
+        top1_acc_per_class = self.classwise_top1_accuracy.compute()
+        top5_acc_per_class = self.classwise_top5_accuracy.compute()
+
+        temporal_top1_acc = top1_acc_per_class[
+            self.temporal_dataset['temporal']].mean()
+        static_top1_acc = top1_acc_per_class[
+            self.temporal_dataset['static']].mean()
+
+        temporal_top5_acc = top5_acc_per_class[
+            self.temporal_dataset['temporal']].mean()
+        static_top5_acc = top5_acc_per_class[
+            self.temporal_dataset['static']].mean()
+
+        self.log('test_top1_accuracy_temporal', temporal_top1_acc)
+        self.log('test_top1_accuracy_static', static_top1_acc)
+
+        self.log('test_top5_accuracy_temporal', temporal_top5_acc)
+        self.log('test_top5_accuracy_static', static_top5_acc)
+
         self.log('test_top1_accuracy_total', self.top1_accuracy)
         self.log('test_top5_accuracy_total', self.top5_accuracy)
 

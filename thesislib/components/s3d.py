@@ -2,28 +2,34 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 
+
 class S3D(nn.Module):
     def __init__(self, num_class):
         super(S3D, self).__init__()
         self.base = nn.Sequential(
             SepConv3d(3, 64, kernel_size=7, stride=2, padding=3),
-            nn.MaxPool3d(kernel_size=(1,3,3), stride=(1,2,2), padding=(0,1,1)),
+            nn.MaxPool3d(kernel_size=(1, 3, 3), stride=(1, 2, 2),
+                         padding=(0, 1, 1)),
             BasicConv3d(64, 64, kernel_size=1, stride=1),
             SepConv3d(64, 192, kernel_size=3, stride=1, padding=1),
-            nn.MaxPool3d(kernel_size=(1,3,3), stride=(1,2,2), padding=(0,1,1)),
+            nn.MaxPool3d(kernel_size=(1, 3, 3), stride=(1, 2, 2),
+                         padding=(0, 1, 1)),
             Mixed_3b(),
             Mixed_3c(),
-            nn.MaxPool3d(kernel_size=(3,3,3), stride=(2,2,2), padding=(1,1,1)),
+            nn.MaxPool3d(kernel_size=(3, 3, 3), stride=(2, 2, 2),
+                         padding=(1, 1, 1)),
             Mixed_4b(),
             Mixed_4c(),
             Mixed_4d(),
             Mixed_4e(),
             Mixed_4f(),
-            nn.MaxPool3d(kernel_size=(2,2,2), stride=(2,2,2), padding=(0,0,0)),
+            nn.MaxPool3d(kernel_size=(2, 2, 2), stride=(2, 2, 2),
+                         padding=(0, 0, 0)),
             Mixed_5b(),
             Mixed_5c(),
         )
-        self.fc = nn.Sequential(nn.Conv3d(1024, num_class, kernel_size=1, stride=1, bias=True),)
+        self.fc = nn.Sequential(
+            nn.Conv3d(1024, num_class, kernel_size=1, stride=1, bias=True), )
 
     def forward(self, x):
         y = self.base(x)
@@ -34,11 +40,14 @@ class S3D(nn.Module):
 
         return logits
 
+
 class BasicConv3d(nn.Module):
     def __init__(self, in_planes, out_planes, kernel_size, stride, padding=0):
         super(BasicConv3d, self).__init__()
-        self.conv = nn.Conv3d(in_planes, out_planes, kernel_size=kernel_size, stride=stride, padding=padding, bias=False)
-        self.bn = nn.BatchNorm3d(out_planes, eps=1e-3, momentum=0.001, affine=True)
+        self.conv = nn.Conv3d(in_planes, out_planes, kernel_size=kernel_size,
+                              stride=stride, padding=padding, bias=False)
+        self.bn = nn.BatchNorm3d(out_planes, eps=1e-3, momentum=0.001,
+                                 affine=True)
         self.relu = nn.ReLU()
 
     def forward(self, x):
@@ -47,15 +56,24 @@ class BasicConv3d(nn.Module):
         x = self.relu(x)
         return x
 
+
 class SepConv3d(nn.Module):
     def __init__(self, in_planes, out_planes, kernel_size, stride, padding=0):
         super(SepConv3d, self).__init__()
-        self.conv_s = nn.Conv3d(in_planes, out_planes, kernel_size=(1,kernel_size,kernel_size), stride=(1,stride,stride), padding=(0,padding,padding), bias=False)
-        self.bn_s = nn.BatchNorm3d(out_planes, eps=1e-3, momentum=0.001, affine=True)
+        self.conv_s = nn.Conv3d(in_planes, out_planes,
+                                kernel_size=(1, kernel_size, kernel_size),
+                                stride=(1, stride, stride),
+                                padding=(0, padding, padding), bias=False)
+        self.bn_s = nn.BatchNorm3d(out_planes, eps=1e-3, momentum=0.001,
+                                   affine=True)
         self.relu_s = nn.ReLU()
 
-        self.conv_t = nn.Conv3d(out_planes, out_planes, kernel_size=(kernel_size,1,1), stride=(stride,1,1), padding=(padding,0,0), bias=False)
-        self.bn_t = nn.BatchNorm3d(out_planes, eps=1e-3, momentum=0.001, affine=True)
+        self.conv_t = nn.Conv3d(out_planes, out_planes,
+                                kernel_size=(kernel_size, 1, 1),
+                                stride=(stride, 1, 1), padding=(padding, 0, 0),
+                                bias=False)
+        self.bn_t = nn.BatchNorm3d(out_planes, eps=1e-3, momentum=0.001,
+                                   affine=True)
         self.relu_t = nn.ReLU()
 
     def forward(self, x):
@@ -67,6 +85,7 @@ class SepConv3d(nn.Module):
         x = self.bn_t(x)
         x = self.relu_t(x)
         return x
+
 
 class Mixed_3b(nn.Module):
     def __init__(self):
@@ -84,7 +103,7 @@ class Mixed_3b(nn.Module):
             SepConv3d(16, 32, kernel_size=3, stride=1, padding=1),
         )
         self.branch3 = nn.Sequential(
-            nn.MaxPool3d(kernel_size=(3,3,3), stride=1, padding=1),
+            nn.MaxPool3d(kernel_size=(3, 3, 3), stride=1, padding=1),
             BasicConv3d(192, 32, kernel_size=1, stride=1),
         )
 
@@ -113,7 +132,7 @@ class Mixed_3c(nn.Module):
             SepConv3d(32, 96, kernel_size=3, stride=1, padding=1),
         )
         self.branch3 = nn.Sequential(
-            nn.MaxPool3d(kernel_size=(3,3,3), stride=1, padding=1),
+            nn.MaxPool3d(kernel_size=(3, 3, 3), stride=1, padding=1),
             BasicConv3d(256, 64, kernel_size=1, stride=1),
         )
 
@@ -142,7 +161,7 @@ class Mixed_4b(nn.Module):
             SepConv3d(16, 48, kernel_size=3, stride=1, padding=1),
         )
         self.branch3 = nn.Sequential(
-            nn.MaxPool3d(kernel_size=(3,3,3), stride=1, padding=1),
+            nn.MaxPool3d(kernel_size=(3, 3, 3), stride=1, padding=1),
             BasicConv3d(480, 64, kernel_size=1, stride=1),
         )
 
@@ -171,7 +190,7 @@ class Mixed_4c(nn.Module):
             SepConv3d(24, 64, kernel_size=3, stride=1, padding=1),
         )
         self.branch3 = nn.Sequential(
-            nn.MaxPool3d(kernel_size=(3,3,3), stride=1, padding=1),
+            nn.MaxPool3d(kernel_size=(3, 3, 3), stride=1, padding=1),
             BasicConv3d(512, 64, kernel_size=1, stride=1),
         )
 
@@ -200,7 +219,7 @@ class Mixed_4d(nn.Module):
             SepConv3d(24, 64, kernel_size=3, stride=1, padding=1),
         )
         self.branch3 = nn.Sequential(
-            nn.MaxPool3d(kernel_size=(3,3,3), stride=1, padding=1),
+            nn.MaxPool3d(kernel_size=(3, 3, 3), stride=1, padding=1),
             BasicConv3d(512, 64, kernel_size=1, stride=1),
         )
 
@@ -229,7 +248,7 @@ class Mixed_4e(nn.Module):
             SepConv3d(32, 64, kernel_size=3, stride=1, padding=1),
         )
         self.branch3 = nn.Sequential(
-            nn.MaxPool3d(kernel_size=(3,3,3), stride=1, padding=1),
+            nn.MaxPool3d(kernel_size=(3, 3, 3), stride=1, padding=1),
             BasicConv3d(512, 64, kernel_size=1, stride=1),
         )
 
@@ -258,7 +277,7 @@ class Mixed_4f(nn.Module):
             SepConv3d(32, 128, kernel_size=3, stride=1, padding=1),
         )
         self.branch3 = nn.Sequential(
-            nn.MaxPool3d(kernel_size=(3,3,3), stride=1, padding=1),
+            nn.MaxPool3d(kernel_size=(3, 3, 3), stride=1, padding=1),
             BasicConv3d(528, 128, kernel_size=1, stride=1),
         )
 
@@ -287,7 +306,7 @@ class Mixed_5b(nn.Module):
             SepConv3d(32, 128, kernel_size=3, stride=1, padding=1),
         )
         self.branch3 = nn.Sequential(
-            nn.MaxPool3d(kernel_size=(3,3,3), stride=1, padding=1),
+            nn.MaxPool3d(kernel_size=(3, 3, 3), stride=1, padding=1),
             BasicConv3d(832, 128, kernel_size=1, stride=1),
         )
 
@@ -316,7 +335,7 @@ class Mixed_5c(nn.Module):
             SepConv3d(48, 128, kernel_size=3, stride=1, padding=1),
         )
         self.branch3 = nn.Sequential(
-            nn.MaxPool3d(kernel_size=(3,3,3), stride=1, padding=1),
+            nn.MaxPool3d(kernel_size=(3, 3, 3), stride=1, padding=1),
             BasicConv3d(832, 128, kernel_size=1, stride=1),
         )
 
@@ -327,4 +346,3 @@ class Mixed_5c(nn.Module):
         x3 = self.branch3(x)
         out = torch.cat((x0, x1, x2, x3), 1)
         return out
-
