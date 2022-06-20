@@ -304,5 +304,7 @@ class TemporalCLIP(pl.LightningModule):
         self._encode_text()
 
     def on_fit_start(self) -> None:
+        self.index_to_prompt = self.trainer.datamodule.index_to_prompt
+        self.index_to_label = self.trainer.datamodule.index_to_label
         self._tokenize_classes()
         self._encode_text()
