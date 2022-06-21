@@ -95,15 +95,16 @@ class TemporalCLIP(pl.LightningModule):
             filter(lambda p: p.requires_grad, self.parameters()),
             lr=1e-3
         )
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            optimizer=optimizer,
-            patience=10
-        )
-        return {'optimizer': optimizer,
-                'lr_scheduler': {
-                    'scheduler': scheduler,
-                    'monitor': 'val_loss',
-                }}
+        # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        #     optimizer=optimizer,
+        #     patience=10
+        # )
+        # return {'optimizer': optimizer,
+        #         'lr_scheduler': {
+        #             'scheduler': scheduler,
+        #             'monitor': 'val_loss',
+        #         }}
+        return optimizer
 
     def training_step(self, batch, batch_idx):
         frames, labels = batch
