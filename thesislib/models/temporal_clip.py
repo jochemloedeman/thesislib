@@ -218,9 +218,7 @@ class TemporalCLIP(pl.LightningModule):
             video = video.unsqueeze(0)
         pred_frames = video[:, self.pred_frames]
         if self.visual_context:
-            visual_context = self.visual_context(
-                video.permute(0, 2, 1, 3, 4)
-            )
+            visual_context = self.visual_context(video)
             video_features = self._modified_visual_encode(pred_frames,
                                                           visual_context)
         else:
