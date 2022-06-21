@@ -19,7 +19,7 @@ class Kinetics400DataModule(pl.LightningDataModule):
             train_batch_size,
             test_batch_size,
             num_workers,
-            frames_per_vid,
+            nr_frames,
             prompt_prefix
     ):
         super().__init__()
@@ -27,7 +27,7 @@ class Kinetics400DataModule(pl.LightningDataModule):
         self.train_batch_size = train_batch_size
         self.test_batch_size = test_batch_size
         self.num_workers = num_workers
-        self.frames_per_vid = frames_per_vid
+        self.nr_frames = nr_frames
         self.prompt_prefix = prompt_prefix
 
     def setup(self, stage: Optional[str] = None) -> None:
@@ -50,11 +50,25 @@ class Kinetics400DataModule(pl.LightningDataModule):
                 lambda x: torch.permute(x, dims=(1, 0, 2, 3))
             ),
         ])
+        self.kinetics_train = Kinetics(
+            root=root_dir.as_posix(),
+            frames_per_vid=self.nr_frames,
+            num_classes='400',
+            split='train',
+            transform=self.transforms
+        )
         self.kinetics_test = Kinetics(
             root=root_dir.as_posix(),
-            frames_per_vid=self.frames_per_vid,
+            frames_per_vid=self.nr_frames,
             num_classes='400',
             split='val',
+            transform=self.transforms
+        )
+        self.kinetics_test = Kinetics(
+            root=root_dir.as_posix(),
+            frames_per_vid=self.nr_frames,
+            num_classes='400',
+            split='test',
             transform=self.transforms
         )
         self._calculate_index_to_prompt()
