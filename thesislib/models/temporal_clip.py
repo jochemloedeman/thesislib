@@ -91,7 +91,7 @@ class TemporalCLIP(pl.LightningModule):
         return logits_per_video, logits_per_text
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(
+        optimizer = torch.optim.SGD(
             filter(lambda p: p.requires_grad, self.parameters()),
             lr=1e-3
         )
