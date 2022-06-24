@@ -21,7 +21,8 @@ class Kinetics400DataModule(pl.LightningDataModule):
             test_batch_size,
             num_workers,
             nr_frames,
-            prompt_prefix
+            prompt_prefix,
+            fps,
     ):
         super().__init__()
         self.data_root = data_root
@@ -30,6 +31,7 @@ class Kinetics400DataModule(pl.LightningDataModule):
         self.num_workers = num_workers
         self.nr_frames = nr_frames
         self.prompt_prefix = prompt_prefix
+        self.fps = fps
 
     def setup(self, stage: Optional[str] = None) -> None:
         root_dir = pathlib.Path(self.data_root) / 'kinetics'
@@ -53,7 +55,9 @@ class Kinetics400DataModule(pl.LightningDataModule):
 
         self.kinetics_test = Kinetics(
             data_path=(root_dir / 'annotations' / 'validate_new.csv').as_posix(),
-            clip_sampler=pytorchvideo.data.UniformClipSampler(clip_duration=1),
+            clip_sampler=pytorchvideo.data.UniformClipSampler(
+                clip_duration=float(self.nr_frames / self.fps)
+            ),
             video_path_prefix=(root_dir / 'val_24').as_posix(),
             decode_audio=False,
             transform=self.transforms

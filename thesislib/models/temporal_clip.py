@@ -127,7 +127,10 @@ class TemporalCLIP(pl.LightningModule):
                 }}
 
     def training_step(self, batch, batch_idx):
-        frames, labels = batch
+        frames, labels = (
+            batch["video"],
+            batch["label"].type(torch.int32),
+        )
         logits_per_video, logits_per_text = self(frames)
         loss = cross_entropy(logits_per_video, labels)
         self.log('train_loss', loss)
@@ -135,7 +138,10 @@ class TemporalCLIP(pl.LightningModule):
         return loss
 
     def validation_step(self, batch, batch_idx):
-        frames, labels = batch
+        frames, labels = (
+            batch["video"],
+            batch["label"].type(torch.int32),
+        )
         logits_per_video, logits_per_text = self(frames)
         loss = cross_entropy(logits_per_video, labels)
         self.log('val_loss', loss, prog_bar=True)
