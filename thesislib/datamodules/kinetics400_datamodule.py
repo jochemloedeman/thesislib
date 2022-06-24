@@ -38,7 +38,7 @@ class Kinetics400DataModule(pl.LightningDataModule):
         labels_to_id = root_dir / 'annotations' / 'labels_to_id.csv'
         self.id_to_label = pd.read_csv(labels_to_id).to_dict()['name']
 
-        self.transforms = pytorchvideo.transforms.ApplyTransformToKey(
+        self.train_transforms = pytorchvideo.transforms.ApplyTransformToKey(
             key='video',
             transform=torchvision.transforms.Compose([
                 pytorchvideo.transforms.UniformTemporalSubsample(num_samples
@@ -52,15 +52,49 @@ class Kinetics400DataModule(pl.LightningDataModule):
                 torchvision.transforms.RandomCrop(size=224)
             ])
         )
-
-        self.kinetics_test = Kinetics(
-            data_path=(root_dir / 'annotations' / 'validate_new.csv').as_posix(),
-            clip_sampler=pytorchvideo.data.UniformClipSampler(
+        self.test_transforms = pytorchvideo.transforms.ApplyTransformToKey(
+            key='video',
+            transform=torchvision.transforms.Compose([
+                pytorchvideo.transforms.UniformTemporalSubsample(num_samples
+                                                                 =self.nr_frames),
+                pytorchvideo.transforms.Div255(),
+                pytorchvideo.transforms.Normalize(
+                    mean=(0.48145466, 0.4578275, 0.40821073),
+                    std=(0.26862954, 0.26130258, 0.27577711)
+                ),
+                pytorchvideo.transforms.ShortSideScale(size=224),
+                torchvision.transforms.CenterCrop(size=224)
+            ])
+        )
+        self.kinetics_train = Kinetics(
+            data_path=(
+                        root_dir / 'annotations' / 'train_new.csv').as_posix(),
+            clip_sampler=pytorchvideo.data.RandomClipSampler(
+                clip_duration=float(self.nr_frames / self.fps)
+            ),
+            video_path_prefix=(root_dir / 'train_24').as_posix(),
+            decode_audio=False,
+            transform=self.train_transforms
+        )
+        self.kinetics_val = Kinetics(
+            data_path=(
+                        root_dir / 'annotations' / 'validate_new.csv').as_posix(),
+            clip_sampler=pytorchvideo.data.RandomClipSampler(
                 clip_duration=float(self.nr_frames / self.fps)
             ),
             video_path_prefix=(root_dir / 'val_24').as_posix(),
             decode_audio=False,
-            transform=self.transforms
+            transform=self.test_transforms
+        )
+
+        self.kinetics_test = Kinetics(
+            data_path=(root_dir / 'annotations' / 'test_new.csv').as_posix(),
+            clip_sampler=pytorchvideo.data.UniformClipSampler(
+                clip_duration=float(self.nr_frames / self.fps)
+            ),
+            video_path_prefix=(root_dir / 'test_24').as_posix(),
+            decode_audio=False,
+            transform=self.test_transforms
         )
 
         self._calculate_index_to_prompt()
@@ -68,10 +102,22 @@ class Kinetics400DataModule(pl.LightningDataModule):
         print()
 
     def train_dataloader(self):
-        pass
+        return DataLoader(
+            dataset=self.kinetics_train,
+            batch_size=self.train_batch_size,
+            shuffle=True,
+            num_workers=self.num_workers,
+            pin_memory=True
+        )
 
     def val_dataloader(self):
-        pass
+        return DataLoader(
+            dataset=self.kinetics_val,
+            batch_size=self.test_batch_size,
+            shuffle=False,
+            num_workers=self.num_workers,
+            pin_memory=True
+        )
 
     def test_dataloader(self):
         return DataLoader(
