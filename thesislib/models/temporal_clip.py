@@ -9,6 +9,7 @@ from clip.simple_tokenizer import SimpleTokenizer
 from torch.nn.functional import cross_entropy
 
 from ..components import ContextAddition, DomainAdaptation, VisualContext
+from ..metrics import ClipAccuracy
 from ..temporal import TemporalLabel
 
 
@@ -77,6 +78,26 @@ class TemporalCLIP(pl.LightningModule):
             top_k=1
         )
 
+        self._get_test_metrics()
+
+    def _get_test_metrics(self):
+        self.test_classwise_top1_accuracy = ClipAccuracy(
+            num_classes=self.temporal_dataset['number_of_classes'],
+            average='none',
+            top_k=1,
+        )
+        self.test_classwise_top5_accuracy = ClipAccuracy(
+            num_classes=self.temporal_dataset['number_of_classes'],
+            average='none',
+            top_k=5,
+        )
+        self.test_top5_accuracy = ClipAccuracy(
+            top_k=5,
+        )
+        self.test_top1_accuracy = ClipAccuracy(
+            top_k=1,
+        )
+
     def forward(self, frames):
         video_features = self.encode_image(frames)
         video_features = video_features.mean(dim=1)
@@ -104,7 +125,6 @@ class TemporalCLIP(pl.LightningModule):
                     'scheduler': scheduler,
                     'monitor': 'val_loss',
                 }}
-        return optimizer
 
     def training_step(self, batch, batch_idx):
         frames, labels = batch
@@ -125,17 +145,29 @@ class TemporalCLIP(pl.LightningModule):
         self.classwise_top5_accuracy(logits_per_video, labels)
 
     def test_step(self, batch, batch_idx):
-        frames, labels = batch
+        frames, labels, video_indices = (
+            batch["video"],
+            batch["label"].type(torch.int32),
+            batch["video_index"].type(torch.int32)
+        )
         logits_per_video, logits_per_text = self(frames)
-        self.top1_accuracy(logits_per_video, labels)
-        self.top5_accuracy(logits_per_video, labels)
-        self.classwise_top1_accuracy(logits_per_video, labels)
-        self.classwise_top5_accuracy(logits_per_video, labels)
+        self.test_top1_accuracy(logits_per_video, labels, video_indices)
+        self.test_top5_accuracy(logits_per_video, labels, video_indices)
+
+        self.test_classwise_top1_accuracy(
+            logits_per_video,
+            labels,
+            video_indices
+        )
+        self.test_classwise_top5_accuracy(
+            logits_per_video,
+            labels,
+            video_indices
+        )
 
     def test_epoch_end(self, outputs) -> None:
-        top1_acc_per_class = self.classwise_top1_accuracy.compute()
-        top5_acc_per_class = self.classwise_top5_accuracy.compute()
-
+        top1_acc_per_class = self.test_classwise_top1_accuracy.compute()
+        top5_acc_per_class = self.test_classwise_top5_accuracy.compute()
         temporal_top1_acc = top1_acc_per_class[
             self.temporal_dataset['temporal']].mean()
         static_top1_acc = top1_acc_per_class[
@@ -152,8 +184,8 @@ class TemporalCLIP(pl.LightningModule):
         self.log('test_top5_accuracy_temporal', temporal_top5_acc)
         self.log('test_top5_accuracy_static', static_top5_acc)
 
-        self.log('test_top1_accuracy_total', self.top1_accuracy)
-        self.log('test_top5_accuracy_total', self.top5_accuracy)
+        self.log('test_top1_accuracy_total', self.test_top1_accuracy.compute())
+        self.log('test_top5_accuracy_total', self.test_top5_accuracy.compute())
 
     def validation_epoch_end(self, outputs) -> None:
         top1_acc_per_class = self.classwise_top1_accuracy.compute()
@@ -217,7 +249,7 @@ class TemporalCLIP(pl.LightningModule):
     def encode_image(self, video):
         if video.dim == 4:
             video = video.unsqueeze(0)
-        pred_frames = video[:, self.pred_frames]
+        pred_frames = video[:, :, self.pred_frames]
         if self.visual_context:
             visual_context = self.visual_context(video)
             video_features = self._modified_visual_encode(pred_frames,
@@ -231,8 +263,9 @@ class TemporalCLIP(pl.LightningModule):
         return video_features
 
     def _modified_visual_encode(self, x, context=None):
-        batch_size, nr_frames, channels, height, width = x.size()
-        x = self.clip_model.visual.conv1(x.view(-1, channels, height, width))
+        batch_size, channels, nr_frames, height, width = x.shape
+        x = torch.permute(x, dims=(0, 2, 1, 3, 4))
+        x = self.clip_model.visual.conv1(x.reshape(-1, channels, height, width))
         x = x.reshape(x.shape[0], x.shape[1], -1)
         x = x.permute(0, 2, 1)  # shape = [*, grid ** 2, width]
         x = torch.cat(
@@ -280,7 +313,7 @@ class TemporalCLIP(pl.LightningModule):
                                       num=self.nr_pred_frames,
                                       endpoint=True).tolist()
 
-        self.pred_frames = pred_frames
+        self.pred_frames = [round(frame_idx) for frame_idx in pred_frames]
 
     def _tokenize_classes(self) -> None:
         class_prompts = list(self.index_to_prompt.values())
