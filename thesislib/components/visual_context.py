@@ -21,8 +21,6 @@ class VisualContext(pl.LightningModule):
 
     def forward(self, frames):
         frames = self._resize(frames)
-        # frame = torchvision.transforms.ToPILImage()(frames[0, :, 0, :, :])
-        # frame.show()
         if self.input_type == 'diff':
             frames = self._calculate_rgb_diff(frames)
 
