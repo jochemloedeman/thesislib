@@ -24,7 +24,8 @@ class TemporalCLIP(pl.LightningModule):
             da_settings: Union[Dict, None],
             ca_settings: Union[Dict, None],
             vc_settings: Union[Dict, None],
-            temporal_dataset: Dict
+            temporal_dataset: Dict,
+            optimizer: str,
 
     ) -> None:
         super().__init__()
@@ -33,6 +34,7 @@ class TemporalCLIP(pl.LightningModule):
         self.temporal_dataset = temporal_dataset
         self.nr_pred_frames = nr_pred_frames
         self.nr_context_frames = nr_context_frames
+        self.optimizer = optimizer
         self._get_pred_frames()
         if not ca_settings:
             self.context_addition = None
@@ -112,10 +114,17 @@ class TemporalCLIP(pl.LightningModule):
         return logits_per_video, logits_per_text
 
     def configure_optimizers(self):
-        optimizer = torch.optim.AdamW(
-            filter(lambda p: p.requires_grad, self.parameters()),
-            lr=1e-3
-        )
+        if self.optimizer == 'adam':
+            optimizer = torch.optim.AdamW(
+                filter(lambda p: p.requires_grad, self.parameters()),
+                lr=1e-3
+            )
+        else:
+            optimizer = torch.optim.SGD(
+                filter(lambda p: p.requires_grad, self.parameters()),
+                lr=1e-1,
+                momentum=0.9
+            )
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
             optimizer=optimizer,
             patience=10
