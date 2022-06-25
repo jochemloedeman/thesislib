@@ -34,10 +34,11 @@ class ClipAccuracy:
 
         aggregated_preds = self._aggregate_preds(total_preds,
                                                  total_indices)
+        probs = aggregated_preds.softmax(dim=-1)
         aggregated_labels = self._aggregate_labels(total_labels,
                                                   total_indices)
 
-        self.metric.update(aggregated_preds, aggregated_labels)
+        self.metric.update(probs, aggregated_labels)
         return self.metric.compute()
 
     def __call__(self, preds, labels, indices):
@@ -51,7 +52,9 @@ class ClipAccuracy:
             idx = idx.item()
             inv_index[idx] += [i]
         for idx in inv_index:
-            aggregated_tensors.append(tensors[inv_index[idx]].mean(dim=0))
+            aggregated_tensors.append(
+                tensors[inv_index[idx]].mean(dim=0)
+            )
 
         return torch.stack(aggregated_tensors)
 
