@@ -68,33 +68,33 @@ class Kinetics400DataModule(pl.LightningDataModule):
         )
         self.kinetics_train = Kinetics(
             data_path=(
-                        root_dir / 'annotations' / 'train_new.csv').as_posix(),
+                        root_dir / 'annotations' / 'train.csv').as_posix(),
             clip_sampler=pytorchvideo.data.RandomClipSampler(
                 clip_duration=float(self.nr_frames / self.fps)
             ),
-            video_path_prefix=(root_dir / 'train_24').as_posix(),
+            video_path_prefix=(root_dir / 'train').as_posix(),
             decode_audio=False,
             transform=self.train_transform
         )
         self.kinetics_val = Kinetics(
             data_path=(
-                        root_dir / 'annotations' / 'validate_new.csv').as_posix(),
+                        root_dir / 'annotations' / 'validate.csv').as_posix(),
             clip_sampler=pytorchvideo.data.RandomClipSampler(
                 clip_duration=float(self.nr_frames / self.fps)
             ),
             video_sampler=torch.utils.data.SequentialSampler,
-            video_path_prefix=(root_dir / 'val_24').as_posix(),
+            video_path_prefix=(root_dir / 'val').as_posix(),
             decode_audio=False,
             transform=self.test_transform
         )
 
         self.kinetics_test = Kinetics(
-            data_path=(root_dir / 'annotations' / 'test_new.csv').as_posix(),
+            data_path=(root_dir / 'annotations' / 'test.csv').as_posix(),
             clip_sampler=pytorchvideo.data.UniformClipSampler(
                 clip_duration=float(self.nr_frames / self.fps)
             ),
             video_sampler=torch.utils.data.SequentialSampler,
-            video_path_prefix=(root_dir / 'test_24').as_posix(),
+            video_path_prefix=(root_dir / 'test').as_posix(),
             decode_audio=False,
             transform=self.test_transform
         )
