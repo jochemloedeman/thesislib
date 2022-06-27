@@ -153,7 +153,7 @@ class TemporalCLIP(pl.LightningModule):
         )
         logits_per_video, logits_per_text = self(frames)
         loss = cross_entropy(logits_per_video, labels)
-        self.log('val_loss', loss, prog_bar=True)
+        self.log('val_loss', loss, prog_bar=True, on_epoch=True, on_step=True)
         self.top1_accuracy(logits_per_video, labels)
         self.top5_accuracy(logits_per_video, labels)
         self.classwise_top1_accuracy(logits_per_video, labels)
