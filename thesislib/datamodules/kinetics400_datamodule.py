@@ -72,6 +72,7 @@ class Kinetics400DataModule(pl.LightningDataModule):
             clip_sampler=pytorchvideo.data.RandomClipSampler(
                 clip_duration=float(self.nr_frames / self.fps)
             ),
+            video_sampler=torch.utils.data.DistributedSampler,
             video_path_prefix=(root_dir / 'train').as_posix(),
             decode_audio=False,
             transform=self.train_transform
@@ -82,7 +83,7 @@ class Kinetics400DataModule(pl.LightningDataModule):
             clip_sampler=pytorchvideo.data.RandomClipSampler(
                 clip_duration=float(self.nr_frames / self.fps)
             ),
-            video_sampler=torch.utils.data.SequentialSampler,
+            video_sampler=torch.utils.data.DistributedSampler,
             video_path_prefix=(root_dir / 'val').as_posix(),
             decode_audio=False,
             transform=self.test_transform
