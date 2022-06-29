@@ -37,7 +37,6 @@ class Kinetics400DataModule(pl.LightningDataModule):
         root_dir = pathlib.Path(self.data_root) / 'kinetics'
         labels_to_id = root_dir / 'annotations' / 'labels_to_id.csv'
         self.id_to_label = pd.read_csv(labels_to_id).to_dict()['name']
-
         self.train_transform = pytorchvideo.transforms.ApplyTransformToKey(
             key='video',
             transform=torchvision.transforms.Compose([
@@ -66,39 +65,41 @@ class Kinetics400DataModule(pl.LightningDataModule):
                 torchvision.transforms.CenterCrop(size=224)
             ])
         )
-        self.kinetics_train = Kinetics(
-            data_path=(
-                        root_dir / 'annotations' / 'train.csv').as_posix(),
-            clip_sampler=pytorchvideo.data.RandomClipSampler(
-                clip_duration=float(self.nr_frames / self.fps)
-            ),
-            video_sampler=torch.utils.data.DistributedSampler,
-            video_path_prefix=(root_dir / 'train').as_posix(),
-            decode_audio=False,
-            transform=self.train_transform
-        )
-        self.kinetics_val = Kinetics(
-            data_path=(
-                        root_dir / 'annotations' / 'validate.csv').as_posix(),
-            clip_sampler=pytorchvideo.data.RandomClipSampler(
-                clip_duration=float(self.nr_frames / self.fps)
-            ),
-            video_sampler=torch.utils.data.DistributedSampler,
-            video_path_prefix=(root_dir / 'val').as_posix(),
-            decode_audio=False,
-            transform=self.test_transform
-        )
-
-        self.kinetics_test = Kinetics(
-            data_path=(root_dir / 'annotations' / 'test.csv').as_posix(),
-            clip_sampler=pytorchvideo.data.UniformClipSampler(
-                clip_duration=float(self.nr_frames / self.fps)
-            ),
-            video_sampler=torch.utils.data.SequentialSampler,
-            video_path_prefix=(root_dir / 'test').as_posix(),
-            decode_audio=False,
-            transform=self.test_transform
-        )
+        if stage == 'fit':
+            self.kinetics_train = Kinetics(
+                data_path=(
+                            root_dir / 'annotations' / 'train.csv').as_posix(),
+                clip_sampler=pytorchvideo.data.RandomClipSampler(
+                    clip_duration=float(self.nr_frames / self.fps)
+                ),
+                video_sampler=torch.utils.data.DistributedSampler,
+                video_path_prefix=(root_dir / 'train').as_posix(),
+                decode_audio=False,
+                transform=self.train_transform
+            )
+            self.kinetics_val = Kinetics(
+                data_path=(
+                            root_dir / 'annotations' / 'validate.csv')
+                .as_posix(),
+                clip_sampler=pytorchvideo.data.RandomClipSampler(
+                    clip_duration=float(self.nr_frames / self.fps)
+                ),
+                video_sampler=torch.utils.data.DistributedSampler,
+                video_path_prefix=(root_dir / 'val').as_posix(),
+                decode_audio=False,
+                transform=self.test_transform
+            )
+        if stage == 'test':
+            self.kinetics_test = Kinetics(
+                data_path=(root_dir / 'annotations' / 'test.csv').as_posix(),
+                clip_sampler=pytorchvideo.data.UniformClipSampler(
+                    clip_duration=float(self.nr_frames / self.fps)
+                ),
+                video_sampler=torch.utils.data.SequentialSampler,
+                video_path_prefix=(root_dir / 'test').as_posix(),
+                decode_audio=False,
+                transform=self.test_transform
+            )
 
         self._calculate_index_to_prompt()
         self._calculate_index_to_label()
