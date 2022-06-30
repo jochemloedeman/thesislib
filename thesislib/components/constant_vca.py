@@ -20,7 +20,7 @@ class ConstantVCA(pl.LightningModule):
             device=self.device,
         )
         torch.nn.init.normal_(vca_vectors, std=0.02)
-        self.vca_vectors = vca_vectors
+        self.vca_vectors = torch.nn.Parameter(vca_vectors)
 
     def forward(self, frames):
         batch_size = len(frames)
