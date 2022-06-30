@@ -5,7 +5,7 @@ from pytorch_lightning import LightningModule
 from torch.nn.functional import cross_entropy
 
 from . import LightningClip
-from ..components import ContextAddition, DomainAdaptation
+from ..components import ContextAddition, TextualDomainAdaptation
 from ..metrics import PartitionRecall
 
 
@@ -56,7 +56,7 @@ class DynamicClip(LightningModule):
         if not domain_adaptation:
             self.domain_adaptation = None
         else:
-            self.domain_adaptation = DomainAdaptation(
+            self.domain_adaptation = TextualDomainAdaptation(
                 embedding_dim=clip_model.token_embedding.embedding_dim,
                 da_length=da_length,
                 da_insertion=da_insertion

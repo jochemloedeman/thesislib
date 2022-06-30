@@ -8,7 +8,8 @@ from clip import clip
 from clip.simple_tokenizer import SimpleTokenizer
 from torch.nn.functional import cross_entropy
 
-from ..components import ContextAddition, DomainAdaptation, VisualContext
+from ..components import ContextAddition, TextualDomainAdaptation, VideoVCA, \
+    ConstantVCA, ImageVCA
 from ..metrics import ClipAccuracy
 from ..temporal import TemporalLabel
 
@@ -21,9 +22,9 @@ class TemporalCLIP(pl.LightningModule):
             clip_architecture: str,
             nr_pred_frames: int,
             nr_context_frames: int,
-            da_settings: Union[Dict, None],
-            ca_settings: Union[Dict, None],
-            vc_settings: Union[Dict, None],
+            tda_settings: Union[Dict, None],
+            tca_settings: Union[Dict, None],
+            vca_settings: Union[Dict, None],
             temporal_dataset: Dict,
             optimizer: str,
 
@@ -36,27 +37,35 @@ class TemporalCLIP(pl.LightningModule):
         self.nr_context_frames = nr_context_frames
         self.optimizer = optimizer
         self._get_pred_frames()
-        if not ca_settings:
-            self.context_addition = None
+        if not tca_settings:
+            self.textual_context_addition = None
         else:
-            self.context_addition = ContextAddition(
+            self.textual_context_addition = ContextAddition(
                 embedding_dim=self.clip_model.token_embedding.embedding_dim,
-                **ca_settings
+                **tca_settings
             )
 
-        if not da_settings:
-            self.domain_adaptation = None
+        if not tda_settings:
+            self.textual_domain_adaptation = None
         else:
-            self.domain_adaptation = DomainAdaptation(
+            self.textual_domain_adaptation = TextualDomainAdaptation(
                 embedding_dim=self.clip_model.token_embedding.embedding_dim,
-                **da_settings
+                **tda_settings
             )
 
-        if not vc_settings:
-            self.visual_context = None
+        if not vca_settings:
+            self.visual_context_addition = None
+        elif vca_settings['vca_mode'] == "video":
+            self.visual_context_addition = VideoVCA(
+                **vca_settings
+            )
+        elif vca_settings['vca_mode'] == 'image':
+            self.visual_context_addition = ImageVCA(
+                **vca_settings
+            )
         else:
-            self.visual_context = VisualContext(
-                **vc_settings
+            self.visual_context_addition = ConstantVCA(
+                **vca_settings
             )
 
         self.index_to_prompt = None
@@ -231,15 +240,15 @@ class TemporalCLIP(pl.LightningModule):
 
         x = self.clip_model.token_embedding(self.tokenized_prompts)
 
-        if self.domain_adaptation:
-            x, eot_indices = self.domain_adaptation(x, eot_indices)
+        if self.textual_domain_adaptation:
+            x, eot_indices = self.textual_domain_adaptation(x, eot_indices)
 
-        if self.context_addition:
+        if self.textual_context_addition:
             dynamic_bools = [
                 label == TemporalLabel.TEMPORAL
                 for label in list(self.index_to_label.values())
             ]
-            x, eot_indices = self.context_addition(
+            x, eot_indices = self.textual_context_addition(
                 x,
                 eot_indices,
                 dynamic_bools
@@ -265,8 +274,8 @@ class TemporalCLIP(pl.LightningModule):
         if video.dim == 4:
             video = video.unsqueeze(0)
         pred_frames = video[:, :, self.pred_frames]
-        if self.visual_context:
-            visual_context = self.visual_context(video)
+        if self.visual_context_addition:
+            visual_context = self.visual_context_addition(video)
             video_features = self._modified_visual_encode(pred_frames,
                                                           visual_context)
         else:
@@ -294,7 +303,7 @@ class TemporalCLIP(pl.LightningModule):
         if context is not None:
             context = (context.unsqueeze(1)
                        + torch.zeros(batch_size, nr_frames,
-                                     self.visual_context.nr_output_vectors,
+                                     self.visual_context_addition.nr_output_vectors,
                                      x.shape[-1]).type_as(x)
                        )
 

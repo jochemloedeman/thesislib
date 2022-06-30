@@ -3,7 +3,7 @@ import pytorch_lightning as pl
 from clip.simple_tokenizer import SimpleTokenizer
 
 
-class DomainAdaptation(pl.LightningModule):
+class TextualDomainAdaptation(pl.LightningModule):
 
     eot_token = SimpleTokenizer().encoder["<|endoftext|>"]
 

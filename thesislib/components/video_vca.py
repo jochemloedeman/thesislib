@@ -4,13 +4,14 @@ import torchvision
 from . import S3D
 
 
-class VisualContext(pl.LightningModule):
+class VideoVCA(pl.LightningModule):
     def __init__(
             self,
             nr_output_vectors,
             vector_dim,
-            video_resolution,
-            input_type,
+            video_resolution=112,
+            input_type='diff',
+            **kwargs,
     ) -> None:
         super().__init__()
         self.nr_output_vectors = nr_output_vectors
