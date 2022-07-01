@@ -30,7 +30,7 @@ class TemporalCLIP(pl.LightningModule):
 
     ) -> None:
         super().__init__()
-
+        self.save_hyperparameters()
         self.clip_model, _ = clip.load(clip_architecture, device='cpu')
         self.temporal_dataset = temporal_dataset
         self.nr_pred_frames = nr_pred_frames
