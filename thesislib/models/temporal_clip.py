@@ -134,9 +134,9 @@ class TemporalCLIP(pl.LightningModule):
                 lr=1e-1,
                 momentum=0.9
             )
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        scheduler = torch.optim.lr_scheduler.MultiStepLR(
             optimizer=optimizer,
-            patience=10
+            milestones=[80, 120]
         )
         return {'optimizer': optimizer,
                 'lr_scheduler': {
