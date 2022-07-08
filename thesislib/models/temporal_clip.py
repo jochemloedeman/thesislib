@@ -11,6 +11,7 @@ from torch.nn.functional import cross_entropy
 from ..components import VideoVCA, \
     ConstantVCA, ConstantTCA, ImageVCA, LMTCA
 from ..metrics import ClipAccuracy
+from ..permutation import VCAPermutation
 
 
 class TemporalCLIP(pl.LightningModule):
@@ -25,6 +26,7 @@ class TemporalCLIP(pl.LightningModule):
             tca_settings: Union[Dict, None],
             temporal_dataset: Dict,
             optimizer: str,
+            permutation_mode: Union[str, None],
     ) -> None:
         super().__init__()
         self.save_hyperparameters()
@@ -34,6 +36,7 @@ class TemporalCLIP(pl.LightningModule):
         self.nr_context_frames = nr_context_frames
         self.optimizer = optimizer
         self._get_pred_frames()
+        self._build_permutation(permutation_mode)
 
         self.index_to_prompt = None
         self.index_to_label = None
@@ -42,6 +45,12 @@ class TemporalCLIP(pl.LightningModule):
         self._build_tca_module(tca_settings)
         self._create_validation_metrics()
         self._create_test_metrics()
+
+    def _build_permutation(self, permutation_mode):
+        if permutation_mode:
+            self.vca_permutation = VCAPermutation(permutation_mode)
+        else:
+            self.vca_permutation = None
 
     def _build_tca_module(self, tca_settings):
         if not tca_settings:
@@ -271,6 +280,11 @@ class TemporalCLIP(pl.LightningModule):
         pred_frames = video[:, :, self.pred_frames]
         if self.visual_context_addition:
             visual_context = self.visual_context_addition(video)
+            if self.vca_permutation:
+                pred_frames, visual_context = self.vca_permutation(
+                    pred_frames,
+                    visual_context
+                )
             video_features = self._modified_visual_encode(pred_frames,
                                                           visual_context)
         else:
