@@ -8,6 +8,7 @@ class ImageVCA(pl.LightningModule):
             self,
             nr_output_vectors,
             vector_dim,
+            pretrained,
             video_resolution=112,
             **kwargs,
     ) -> None:
@@ -15,7 +16,7 @@ class ImageVCA(pl.LightningModule):
         self.nr_output_vectors = nr_output_vectors
         self.vector_dim = vector_dim
         self.video_resolution = video_resolution
-        self.model = self._generate_resnet()
+        self.model = self._generate_resnet(pretrained)
 
     def forward(self, frames):
         frames = self._resize(frames)
@@ -35,8 +36,8 @@ class ImageVCA(pl.LightningModule):
                            self.video_resolution,
                            self.video_resolution)
 
-    def _generate_resnet(self):
-        resnet = torchvision.models.resnet18(pretrained=False)
+    def _generate_resnet(self, pretrained):
+        resnet = torchvision.models.resnet18(pretrained=pretrained)
         resnet.fc = torch.nn.Linear(
             in_features=512,
             out_features=self.nr_output_vectors * self.vector_dim
