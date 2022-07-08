@@ -8,10 +8,9 @@ from clip import clip
 from clip.simple_tokenizer import SimpleTokenizer
 from torch.nn.functional import cross_entropy
 
-from ..components import ContextAddition, TextualDomainAdaptation, VideoVCA, \
-    ConstantVCA, ImageVCA
+from ..components import VideoVCA, \
+    ConstantVCA, ConstantTCA, ImageVCA, LMTCA
 from ..metrics import ClipAccuracy
-from ..temporal import TemporalLabel
 
 
 class TemporalCLIP(pl.LightningModule):
@@ -22,12 +21,10 @@ class TemporalCLIP(pl.LightningModule):
             clip_architecture: str,
             nr_pred_frames: int,
             nr_context_frames: int,
-            tda_settings: Union[Dict, None],
-            tca_settings: Union[Dict, None],
             vca_settings: Union[Dict, None],
+            tca_settings: Union[Dict, None],
             temporal_dataset: Dict,
             optimizer: str,
-
     ) -> None:
         super().__init__()
         self.save_hyperparameters()
@@ -37,22 +34,28 @@ class TemporalCLIP(pl.LightningModule):
         self.nr_context_frames = nr_context_frames
         self.optimizer = optimizer
         self._get_pred_frames()
+
+        self.index_to_prompt = None
+        self.index_to_label = None
+        self._freeze_components()
+        self._build_vca_module(vca_settings)
+        self._build_tca_module(tca_settings)
+        self._create_validation_metrics()
+        self._create_test_metrics()
+
+    def _build_tca_module(self, tca_settings):
         if not tca_settings:
             self.textual_context_addition = None
+        elif tca_settings['tca_mode'] == 'lm':
+            self.textual_context_addition = LMTCA(
+                **tca_settings
+            )
         else:
-            self.textual_context_addition = ContextAddition(
-                embedding_dim=self.clip_model.token_embedding.embedding_dim,
+            self.textual_context_addition = ConstantTCA(
                 **tca_settings
             )
 
-        if not tda_settings:
-            self.textual_domain_adaptation = None
-        else:
-            self.textual_domain_adaptation = TextualDomainAdaptation(
-                embedding_dim=self.clip_model.token_embedding.embedding_dim,
-                **tda_settings
-            )
-
+    def _build_vca_module(self, vca_settings):
         if not vca_settings:
             self.visual_context_addition = None
         elif vca_settings['vca_mode'] == "video":
@@ -68,10 +71,7 @@ class TemporalCLIP(pl.LightningModule):
                 **vca_settings
             )
 
-        self.index_to_prompt = None
-        self.index_to_label = None
-        self._freeze_components()
-
+    def _create_validation_metrics(self):
         self.classwise_top1_accuracy = torchmetrics.Accuracy(
             num_classes=self.temporal_dataset['number_of_classes'],
             average='none',
@@ -89,9 +89,9 @@ class TemporalCLIP(pl.LightningModule):
             top_k=1
         )
 
-        self._get_test_metrics()
+        self._create_test_metrics()
 
-    def _get_test_metrics(self):
+    def _create_test_metrics(self):
         self.test_classwise_top1_accuracy = ClipAccuracy(
             num_classes=self.temporal_dataset['number_of_classes'],
             average='none',
@@ -110,11 +110,11 @@ class TemporalCLIP(pl.LightningModule):
         )
 
     def forward(self, frames):
-        video_features = self.encode_image(frames)
+        video_features = self._encode_image(frames)
         video_features = video_features.mean(dim=1)
         video_features = video_features / video_features.norm(dim=1,
                                                               keepdim=True)
-        text_features = self.encoded_text
+        text_features = self._encode_text()
         text_features = text_features / text_features.norm(dim=1,
                                                            keepdim=True)
         logit_scale = self.clip_model.logit_scale.exp()
@@ -234,27 +234,22 @@ class TemporalCLIP(pl.LightningModule):
         self.log('val_top1_accuracy_total', self.top1_accuracy)
         self.log('val_top5_accuracy_total', self.top5_accuracy)
 
-    def _encode_text(self) -> None:
+    def _encode_text(self) -> torch.Tensor:
         eot_indices = (self.tokenized_prompts
                        == self.eot_token).nonzero(as_tuple=True)[1]
 
         x = self.clip_model.token_embedding(self.tokenized_prompts)
 
-        if self.textual_domain_adaptation:
-            x, eot_indices = self.textual_domain_adaptation(x, eot_indices)
-
         if self.textual_context_addition:
-            dynamic_bools = [
-                label == TemporalLabel.TEMPORAL
-                for label in list(self.index_to_label.values())
-            ]
             x, eot_indices = self.textual_context_addition(
                 x,
                 eot_indices,
-                dynamic_bools
+                list(self.index_to_prompt.values()),
             )
 
-        self.encoded_text = self._modified_text_encode(x, eot_indices)
+        x = self._modified_text_encode(x, eot_indices)
+
+        return x
 
     def _modified_text_encode(self, x, eot_indices):
         x = x + self.clip_model.positional_embedding.type(self.dtype)
@@ -270,7 +265,7 @@ class TemporalCLIP(pl.LightningModule):
         x = x @ self.clip_model.text_projection
         return x
 
-    def encode_image(self, video):
+    def _encode_image(self, video):
         if video.dim == 4:
             video = video.unsqueeze(0)
         pred_frames = video[:, :, self.pred_frames]
@@ -352,10 +347,8 @@ class TemporalCLIP(pl.LightningModule):
         self.index_to_prompt = self.trainer.datamodule.index_to_prompt
         self.index_to_label = self.trainer.datamodule.index_to_label
         self._tokenize_classes()
-        self._encode_text()
 
     def on_fit_start(self) -> None:
         self.index_to_prompt = self.trainer.datamodule.index_to_prompt
         self.index_to_label = self.trainer.datamodule.index_to_label
         self._tokenize_classes()
-        self._encode_text()

@@ -4,3 +4,6 @@ from .video_vca import VideoVCA
 from .domain_adaptation import TextualDomainAdaptation
 from .constant_vca import ConstantVCA
 from .image_vca import ImageVCA
+from .tca_utils import insert_tca_vectors
+from .constant_tca import ConstantTCA
+from .lm_tca import LMTCA
