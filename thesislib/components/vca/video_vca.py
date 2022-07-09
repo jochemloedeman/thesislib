@@ -6,6 +6,7 @@ import torch
 import torchvision
 
 from . import S3D, S3DHD
+from ...permutation import TemporalPermutation
 
 
 class VideoVCA(pl.LightningModule):
@@ -15,6 +16,7 @@ class VideoVCA(pl.LightningModule):
             vector_dim,
             video_resolution=112,
             input_type='diff',
+            temporal_permutation=False,
             **kwargs,
     ) -> None:
         super().__init__()
@@ -28,6 +30,10 @@ class VideoVCA(pl.LightningModule):
             s3d = S3D(nr_output_vectors * vector_dim)
 
         self.s3d = s3d
+        if temporal_permutation:
+            self.temporal_permutation = TemporalPermutation()
+        else:
+            self.temporal_permutation = None
 
     def _load_model_from_pt(self):
         model = S3DHD(400)
@@ -58,9 +64,12 @@ class VideoVCA(pl.LightningModule):
         )
         return model
 
-
     def forward(self, frames):
+        if self.temporal_permutation:
+            frames = self.temporal_permutation(frames)
+
         frames = self._resize(frames)
+
         if self.input_type == 'diff':
             frames = self._calculate_rgb_diff(frames)
 
