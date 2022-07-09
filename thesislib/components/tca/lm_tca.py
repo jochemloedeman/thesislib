@@ -2,8 +2,7 @@ import pytorch_lightning as pl
 import torch
 import transformers
 
-from thesislib.components import insert_tca_vectors
-
+from . import insert_tca_vectors
 
 class LMTCA(pl.LightningModule):
     def __init__(

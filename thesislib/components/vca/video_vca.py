@@ -1,7 +1,11 @@
+import os
+from pathlib import Path
+
 import pytorch_lightning as pl
 import torch
 import torchvision
-from . import S3D
+
+from . import S3D, S3DHD
 
 
 class VideoVCA(pl.LightningModule):
@@ -18,7 +22,42 @@ class VideoVCA(pl.LightningModule):
         self.vector_dim = vector_dim
         self.video_resolution = video_resolution
         self.input_type = input_type
-        self.s3d = S3D(nr_output_vectors * vector_dim)
+        if video_resolution == 224:
+            s3d = self._load_model_from_pt()
+        else:
+            s3d = S3D(nr_output_vectors * vector_dim)
+
+        self.s3d = s3d
+
+    def _load_model_from_pt(self):
+        model = S3DHD(400)
+        file_weight = Path(__file__).parent / 'S3D_kinetics400.pt'
+        if os.path.isfile(file_weight):
+            print('loading weight file')
+            weight_dict = torch.load(file_weight)
+            model_dict = model.state_dict()
+            for name, param in weight_dict.items():
+                if 'module' in name:
+                    name = '.'.join(name.split('.')[1:])
+                if name in model_dict:
+                    if param.size() == model_dict[name].size():
+                        model_dict[name].copy_(param)
+                    else:
+                        print(' size? ' + name, param.size(),
+                              model_dict[name].size())
+                else:
+                    print(' name? ' + name)
+
+            print(' loaded')
+        else:
+            print('weight file?')
+
+        model.fc = torch.nn.Conv3d(
+            1024, (self.nr_output_vectors * self.vector_dim),
+            kernel_size=1, stride=1, bias=True
+        )
+        return model
+
 
     def forward(self, frames):
         frames = self._resize(frames)

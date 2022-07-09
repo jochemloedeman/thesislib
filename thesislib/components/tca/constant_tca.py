@@ -1,7 +1,7 @@
 import pytorch_lightning as pl
 import torch
 
-from thesislib.components import insert_tca_vectors
+from . import insert_tca_vectors
 
 
 class ConstantTCA(pl.LightningModule):

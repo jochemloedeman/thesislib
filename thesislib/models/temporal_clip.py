@@ -8,8 +8,8 @@ from clip import clip
 from clip.simple_tokenizer import SimpleTokenizer
 from torch.nn.functional import cross_entropy
 
-from ..components import VideoVCA, \
-    ConstantVCA, ConstantTCA, ImageVCA, LMTCA
+from ..components.tca import ConstantTCA, LMTCA
+from ..components.vca import ConstantVCA, VideoVCA, ImageVCA
 from ..metrics import ClipAccuracy
 from ..permutation import VCAPermutation
 
