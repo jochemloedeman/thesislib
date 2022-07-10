@@ -40,6 +40,7 @@ class TemporalCLIP(pl.LightningModule):
 
         self.index_to_prompt = None
         self.index_to_label = None
+        self.class_to_id = None
         self._freeze_components()
         self._build_vca_module(vca_settings)
         self._build_tca_module(tca_settings)
@@ -84,7 +85,7 @@ class TemporalCLIP(pl.LightningModule):
         self.classwise_top1_accuracy = torchmetrics.Accuracy(
             num_classes=self.temporal_dataset['number_of_classes'],
             average='none',
-            top_k=1
+            top_k=1,
         )
         self.classwise_top5_accuracy = torchmetrics.Accuracy(
             num_classes=self.temporal_dataset['number_of_classes'],
@@ -116,6 +117,22 @@ class TemporalCLIP(pl.LightningModule):
         )
         self.test_top1_accuracy = ClipAccuracy(
             top_k=1,
+        )
+        self.temporal_top1_accuracy = ClipAccuracy(
+            top_k=1,
+            subset=self.temporal_dataset['temporal']
+        )
+        self.temporal_top5_accuracy = ClipAccuracy(
+            top_k=5,
+            subset=self.temporal_dataset['temporal']
+        )
+        self.static_top1_accuracy = ClipAccuracy(
+            top_k=1,
+            subset=self.temporal_dataset['static']
+        )
+        self.static_top1_accuracy = ClipAccuracy(
+            top_k=5,
+            subset=self.temporal_dataset['static']
         )
 
     def forward(self, frames):
@@ -180,9 +197,11 @@ class TemporalCLIP(pl.LightningModule):
     def test_step(self, batch, batch_idx):
         frames, labels, video_indices = (
             batch["video"],
-            batch["label"].type(torch.int32),
+            batch["label"],
             batch["video_index"].type(torch.int32)
         )
+        if isinstance(labels, list):
+            labels = torch.tensor([self.class_to_id[label] for label in labels])
         logits_per_video, logits_per_text = self(frames)
         self.test_top1_accuracy(logits_per_video, labels, video_indices)
         self.test_top5_accuracy(logits_per_video, labels, video_indices)
@@ -193,6 +212,26 @@ class TemporalCLIP(pl.LightningModule):
             video_indices
         )
         self.test_classwise_top5_accuracy(
+            logits_per_video,
+            labels,
+            video_indices
+        )
+        self.temporal_top1_accuracy(
+            logits_per_video,
+            labels,
+            video_indices
+        )
+        self.temporal_top5_accuracy(
+            logits_per_video,
+            labels,
+            video_indices
+        )
+        self.static_top1_accuracy(
+            logits_per_video,
+            labels,
+            video_indices
+        )
+        self.static_top5_accuracy(
             logits_per_video,
             labels,
             video_indices
@@ -219,6 +258,14 @@ class TemporalCLIP(pl.LightningModule):
 
         self.log('test_top1_accuracy_total', self.test_top1_accuracy.compute())
         self.log('test_top5_accuracy_total', self.test_top5_accuracy.compute())
+        self.log('temporal_top1_accuracy',
+                 self.temporal_top1_accuracy.compute())
+        self.log('temporal_top5_accuracy',
+                 self.temporal_top5_accuracy.compute())
+        self.log('static_top1_accuracy',
+                 self.static_top1_accuracy.compute())
+        self.log('static_top5_accuracy',
+                 self.static_top5_accuracy.compute())
 
     def validation_epoch_end(self, outputs) -> None:
         top1_acc_per_class = self.classwise_top1_accuracy.compute()
@@ -360,9 +407,11 @@ class TemporalCLIP(pl.LightningModule):
     def on_test_start(self) -> None:
         self.index_to_prompt = self.trainer.datamodule.index_to_prompt
         self.index_to_label = self.trainer.datamodule.index_to_label
+        self.class_to_id = self.trainer.datamodule.class_to_id
         self._tokenize_classes()
 
     def on_fit_start(self) -> None:
         self.index_to_prompt = self.trainer.datamodule.index_to_prompt
         self.index_to_label = self.trainer.datamodule.index_to_label
+        self.class_to_id = self.trainer.datamodule.class_to_id
         self._tokenize_classes()

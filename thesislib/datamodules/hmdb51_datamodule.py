@@ -1,19 +1,18 @@
+import os
 import pathlib
 from typing import Optional
 
-import pandas as pd
 import pytorch_lightning as pl
 import pytorchvideo.transforms
 import torch
 import torchvision.transforms
-from pytorchvideo.data import Kinetics
+from pytorchvideo.data import Kinetics, Hmdb51
 from torch.utils.data import DataLoader
-from torchvision.transforms import InterpolationMode
 
 from thesislib.temporal import TemporalLabel
 
 
-class Kinetics400DataModule(pl.LightningDataModule):
+class HMDB51DataModule(pl.LightningDataModule):
     def __init__(
             self,
             data_root,
@@ -34,10 +33,8 @@ class Kinetics400DataModule(pl.LightningDataModule):
         self.fps = fps
 
     def setup(self, stage: Optional[str] = None) -> None:
-        root_dir = pathlib.Path(self.data_root) / 'kinetics'
-        labels_to_id = root_dir / 'annotations' / 'labels_to_id.csv'
-        self.id_to_class = pd.read_csv(labels_to_id).to_dict()['name']
-        self.class_to_id = {v: k for k,v in self.id_to_class.items()}
+        root_dir = pathlib.Path(self.data_root) / 'hmdb51'
+        self._generate_label_dict(root_dir)
         self.train_transform = pytorchvideo.transforms.ApplyTransformToKey(
             key='video',
             transform=torchvision.transforms.Compose([
@@ -67,48 +64,50 @@ class Kinetics400DataModule(pl.LightningDataModule):
             ])
         )
         if stage == 'fit':
-            self.kinetics_train = Kinetics(
-                data_path=(
-                            root_dir / 'annotations' / 'train.csv').as_posix(),
+            self.hmdb51_train = Hmdb51(
+                data_path=(root_dir / 'splits'),
                 clip_sampler=pytorchvideo.data.RandomClipSampler(
                     clip_duration=float(self.nr_frames / self.fps)
                 ),
                 video_sampler=torch.utils.data.DistributedSampler,
-                video_path_prefix=(root_dir / 'train').as_posix(),
+                video_path_prefix=(root_dir / 'videos').as_posix(),
                 decode_audio=False,
+                split_type='train',
+                split_id=1,
                 transform=self.train_transform
             )
-            self.kinetics_val = Kinetics(
-                data_path=(
-                            root_dir / 'annotations' / 'validate.csv')
-                .as_posix(),
+            self.hmdb51_val = Hmdb51(
+                data_path=(root_dir / 'splits'),
                 clip_sampler=pytorchvideo.data.RandomClipSampler(
                     clip_duration=float(self.nr_frames / self.fps)
                 ),
                 video_sampler=torch.utils.data.DistributedSampler,
-                video_path_prefix=(root_dir / 'val').as_posix(),
+                video_path_prefix=(root_dir / 'videos').as_posix(),
                 decode_audio=False,
+                split_type='train',
+                split_id=1,
                 transform=self.test_transform
             )
         if stage == 'test':
-            self.kinetics_test = Kinetics(
-                data_path=(root_dir / 'annotations' / 'test.csv').as_posix(),
+            self.hmdb51_test = Hmdb51(
+                data_path=(root_dir / 'splits'),
                 clip_sampler=pytorchvideo.data.UniformClipSampler(
                     clip_duration=float(self.nr_frames / self.fps)
                 ),
                 video_sampler=torch.utils.data.SequentialSampler,
-                video_path_prefix=(root_dir / 'test').as_posix(),
+                video_path_prefix=(root_dir / 'videos').as_posix(),
                 decode_audio=False,
+                split_type='train',
+                split_id=1,
                 transform=self.test_transform
             )
-
         self._calculate_index_to_prompt()
         self._calculate_index_to_label()
         print()
 
     def train_dataloader(self):
         return DataLoader(
-            dataset=self.kinetics_train,
+            dataset=self.hmdb51_train,
             batch_size=self.train_batch_size,
             shuffle=False,
             num_workers=self.num_workers,
@@ -117,7 +116,7 @@ class Kinetics400DataModule(pl.LightningDataModule):
 
     def val_dataloader(self):
         return DataLoader(
-            dataset=self.kinetics_val,
+            dataset=self.hmdb51_val,
             batch_size=self.test_batch_size,
             shuffle=False,
             num_workers=self.num_workers,
@@ -126,12 +125,21 @@ class Kinetics400DataModule(pl.LightningDataModule):
 
     def test_dataloader(self):
         return DataLoader(
-            dataset=self.kinetics_test,
+            dataset=self.hmdb51_test,
             batch_size=self.test_batch_size,
             shuffle=False,
             num_workers=self.num_workers,
             pin_memory=True
         )
+
+    def _generate_label_dict(self, root_dir):
+        video_dir = root_dir / 'videos'
+        classes = os.listdir(video_dir)
+        label_dict = {
+            idx: classes[idx] for idx in range(len(classes))
+        }
+        self.id_to_class = label_dict
+        self.class_to_id = {v: k for k, v in label_dict.items()}
 
     def _calculate_index_to_prompt(self):
         classes = [
@@ -153,9 +161,15 @@ class Kinetics400DataModule(pl.LightningDataModule):
 
 
 if __name__ == '__main__':
-    module = Kinetics400DataModule(
-        test_batch_size=1,
-        num_workers=4
+    datamodule = HMDB51DataModule(
+        data_root="/home/jochem/Documents/ai/scriptie/data",
+        train_batch_size=2,
+        test_batch_size=2,
+        num_workers=4,
+        nr_frames=4,
+        prompt_prefix="",
+        fps=4
     )
-    module.setup()
+    datamodule.setup(stage='test')
+    a = next(datamodule.hmdb51_test)
     print()

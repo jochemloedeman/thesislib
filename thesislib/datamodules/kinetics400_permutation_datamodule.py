@@ -36,7 +36,8 @@ class Kinetics400PermutationDataModule(pl.LightningDataModule):
     def setup(self, stage: Optional[str] = None) -> None:
         root_dir = pathlib.Path(self.data_root) / 'kinetics'
         labels_to_id = root_dir / 'annotations' / 'labels_to_id.csv'
-        self.id_to_label = pd.read_csv(labels_to_id).to_dict()['name']
+        self.id_to_class = pd.read_csv(labels_to_id).to_dict()['name']
+        self.class_to_id = {v: k for k, v in self.id_to_class.items()}
         self.test_transform = pytorchvideo.transforms.ApplyTransformToKey(
             key='video',
             transform=torchvision.transforms.Compose([
@@ -79,7 +80,7 @@ class Kinetics400PermutationDataModule(pl.LightningDataModule):
     def _calculate_index_to_prompt(self):
         classes = [
             class_str.replace("_", " ")
-            for class_str in self.id_to_label.values()
+            for class_str in self.id_to_class.values()
         ]
         self.prompts = [
             self.prompt_prefix + class_str.lower() for class_str in classes
@@ -91,7 +92,7 @@ class Kinetics400PermutationDataModule(pl.LightningDataModule):
     def _calculate_index_to_label(self):
         self.index_to_label = {
             idx: TemporalLabel.TEMPORAL
-            for idx in range(len(self.id_to_label.keys()))
+            for idx in range(len(self.id_to_class.keys()))
         }
 
 

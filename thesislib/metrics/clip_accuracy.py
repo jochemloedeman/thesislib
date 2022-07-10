@@ -1,17 +1,20 @@
 from collections import defaultdict
-from typing import Optional
+from typing import Optional, List
 
 import torch
 import torchmetrics
+
 
 class ClipAccuracy:
     def __init__(
             self,
             top_k: Optional[int] = None,
             num_classes: Optional[int] = None,
-            average: Optional[str] = "micro"
+            average: Optional[str] = "micro",
+            subset: Optional[List[int]] = None,
     ) -> None:
 
+        self.subset = subset
         self.metric = torchmetrics.Accuracy(
             num_classes=num_classes,
             average=average,
@@ -32,17 +35,27 @@ class ClipAccuracy:
         total_labels = torch.cat(self.labels, dim=0).squeeze()
         total_indices = torch.cat(self.video_indices, dim=0).squeeze()
 
+        if self.subset:
+            subset_indices = self._get_subset_mask(total_labels)
+            total_labels = total_labels[subset_indices]
+            total_preds = total_preds[subset_indices]
+            total_indices = total_indices[subset_indices]
+
         aggregated_preds = self._aggregate_preds(total_preds,
                                                  total_indices)
         probs = aggregated_preds.softmax(dim=-1)
         aggregated_labels = self._aggregate_labels(total_labels,
-                                                  total_indices)
+                                                   total_indices)
 
         self.metric.update(probs, aggregated_labels)
         return self.metric.compute()
 
     def __call__(self, preds, labels, indices):
         self.update(preds, labels, indices)
+
+    def _get_subset_mask(self, labels):
+        return torch.isin(labels,
+                          torch.tensor(self.subset).to(labels.device))
 
     @staticmethod
     def _aggregate_preds(tensors, indices):
@@ -69,4 +82,3 @@ class ClipAccuracy:
             aggregated_tensors.append(tensors[inv_index[idx][0]])
 
         return torch.stack(aggregated_tensors)
-
