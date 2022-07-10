@@ -130,7 +130,7 @@ class TemporalCLIP(pl.LightningModule):
             top_k=1,
             subset=self.temporal_dataset['static']
         )
-        self.static_top1_accuracy = ClipAccuracy(
+        self.static_top5_accuracy = ClipAccuracy(
             top_k=5,
             subset=self.temporal_dataset['static']
         )
