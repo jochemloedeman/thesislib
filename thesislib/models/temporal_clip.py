@@ -201,7 +201,9 @@ class TemporalCLIP(pl.LightningModule):
             batch["video_index"].type(torch.int32)
         )
         if isinstance(labels, list):
-            labels = torch.tensor([self.class_to_id[label] for label in labels])
+            labels = torch.tensor([self.class_to_id[label] for label in labels],
+                                  device=self.device)
+
         logits_per_video, logits_per_text = self(frames)
         self.test_top1_accuracy(logits_per_video, labels, video_indices)
         self.test_top5_accuracy(logits_per_video, labels, video_indices)
