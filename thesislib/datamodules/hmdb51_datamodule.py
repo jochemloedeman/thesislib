@@ -1,7 +1,9 @@
+import json
 import os
 import pathlib
 from typing import Optional
 
+import pandas as pd
 import pytorch_lightning as pl
 import pytorchvideo.transforms
 import torch
@@ -16,6 +18,7 @@ class HMDB51DataModule(pl.LightningDataModule):
     def __init__(
             self,
             data_root,
+            data_split,
             train_batch_size,
             test_batch_size,
             num_workers,
@@ -25,6 +28,7 @@ class HMDB51DataModule(pl.LightningDataModule):
     ):
         super().__init__()
         self.data_root = data_root
+        self.data_split = data_split
         self.train_batch_size = train_batch_size
         self.test_batch_size = test_batch_size
         self.num_workers = num_workers
@@ -34,7 +38,13 @@ class HMDB51DataModule(pl.LightningDataModule):
 
     def setup(self, stage: Optional[str] = None) -> None:
         root_dir = pathlib.Path(self.data_root) / 'hmdb51'
-        self._generate_label_dict(root_dir)
+        labels_to_id_path = root_dir / 'labels_to_id.csv'
+        class_to_prompt_path = root_dir / 'class_to_prompt.json'
+        self.id_to_class = pd.read_csv(labels_to_id_path).to_dict()['name']
+        self.class_to_id = {v: k for k, v in self.id_to_class.items()}
+        with open(class_to_prompt_path) as file:
+            self.class_to_prompt = json.load(file)
+
         self.train_transform = pytorchvideo.transforms.ApplyTransformToKey(
             key='video',
             transform=torchvision.transforms.Compose([
@@ -73,7 +83,7 @@ class HMDB51DataModule(pl.LightningDataModule):
                 video_path_prefix=(root_dir / 'videos').as_posix(),
                 decode_audio=False,
                 split_type='train',
-                split_id=1,
+                split_id=self.data_split,
                 transform=self.train_transform
             )
             self.hmdb51_val = Hmdb51(
@@ -85,7 +95,7 @@ class HMDB51DataModule(pl.LightningDataModule):
                 video_path_prefix=(root_dir / 'videos').as_posix(),
                 decode_audio=False,
                 split_type='train',
-                split_id=1,
+                split_id=self.data_split,
                 transform=self.test_transform
             )
         if stage == 'test':
@@ -98,7 +108,7 @@ class HMDB51DataModule(pl.LightningDataModule):
                 video_path_prefix=(root_dir / 'videos').as_posix(),
                 decode_audio=False,
                 split_type='train',
-                split_id=1,
+                split_id=self.data_split,
                 transform=self.test_transform
             )
         self._calculate_index_to_prompt()
@@ -132,26 +142,12 @@ class HMDB51DataModule(pl.LightningDataModule):
             pin_memory=True
         )
 
-    def _generate_label_dict(self, root_dir):
-        video_dir = root_dir / 'videos'
-        classes = os.listdir(video_dir)
-        label_dict = {
-            idx: classes[idx] for idx in range(len(classes))
-        }
-        self.id_to_class = label_dict
-        self.class_to_id = {v: k for k, v in label_dict.items()}
-
     def _calculate_index_to_prompt(self):
-        classes = [
-            class_str.replace("_", " ")
-            for class_str in self.id_to_class.values()
-        ]
-        self.prompts = [
-            self.prompt_prefix + class_str.lower() for class_str in classes
-        ]
         self.index_to_prompt = {
-            idx: self.prompts[idx] for idx in range(len(self.prompts))
+            idx: self.class_to_prompt[self.id_to_class[idx]]
+            for idx in range(len(self.id_to_class))
         }
+        self.prompts = list(self.class_to_prompt.values())
 
     def _calculate_index_to_label(self):
         self.index_to_label = {

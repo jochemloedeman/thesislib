@@ -23,6 +23,7 @@ class Kinetics400DataModule(pl.LightningDataModule):
             nr_frames,
             prompt_prefix,
             fps,
+            **kwargs,
     ):
         super().__init__()
         self.data_root = data_root
