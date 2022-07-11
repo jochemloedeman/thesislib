@@ -144,7 +144,8 @@ class HMDB51DataModule(pl.LightningDataModule):
 
     def _calculate_index_to_prompt(self):
         self.index_to_prompt = {
-            idx: self.class_to_prompt[self.id_to_class[idx]]
+            idx: (self.prompt_prefix
+                  + self.class_to_prompt[self.id_to_class[idx]].lower())
             for idx in range(len(self.id_to_class))
         }
         self.prompts = list(self.class_to_prompt.values())
