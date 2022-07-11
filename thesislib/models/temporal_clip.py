@@ -1,9 +1,10 @@
-from typing import Dict, Union
+from typing import Dict, Union, Optional
 
 import numpy as np
 import pytorch_lightning as pl
 import torch
 import torchmetrics
+import torchvision.transforms
 from clip import clip
 from clip.simple_tokenizer import SimpleTokenizer
 from torch.nn.functional import cross_entropy
@@ -26,7 +27,7 @@ class TemporalCLIP(pl.LightningModule):
             tca_settings: Union[Dict, None],
             temporal_dataset: Dict,
             optimizer: str,
-            permutation_mode: Union[str, None],
+            permutation_mode: Optional[str] = None,
     ) -> None:
         super().__init__()
         self.save_hyperparameters()
@@ -327,6 +328,8 @@ class TemporalCLIP(pl.LightningModule):
         if video.dim == 4:
             video = video.unsqueeze(0)
         pred_frames = video[:, :, self.pred_frames]
+        # to_image = torchvision.transforms.ToPILImage()
+        # image = to_image(pred_frames[0].squeeze())
         if self.visual_context_addition:
             visual_context = self.visual_context_addition(video)
             if self.vca_permutation:
