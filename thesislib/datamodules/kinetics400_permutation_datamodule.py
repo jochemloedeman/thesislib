@@ -24,6 +24,7 @@ class Kinetics400PermutationDataModule(pl.LightningDataModule):
             prompt_prefix,
             fps,
             temporal_dataset,
+            **kwargs
     ):
         super().__init__()
         self.data_root = data_root
