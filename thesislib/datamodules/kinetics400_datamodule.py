@@ -21,6 +21,7 @@ class Kinetics400DataModule(pl.LightningDataModule):
             nr_frames,
             prompt_prefix,
             fps,
+            temporal_dataset,
             **kwargs,
     ):
         super().__init__()
@@ -31,6 +32,7 @@ class Kinetics400DataModule(pl.LightningDataModule):
         self.nr_frames = nr_frames
         self.prompt_prefix = prompt_prefix
         self.fps = fps
+        self.temporal_dataset = temporal_dataset
 
     def setup(self, stage: Optional[str] = None) -> None:
         root_dir = pathlib.Path(self.data_root) / 'kinetics'

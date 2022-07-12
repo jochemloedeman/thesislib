@@ -25,6 +25,7 @@ class HMDB51DataModule(pl.LightningDataModule):
             nr_frames,
             prompt_prefix,
             fps,
+            temporal_dataset,
     ):
         super().__init__()
         self.data_root = data_root
@@ -35,6 +36,7 @@ class HMDB51DataModule(pl.LightningDataModule):
         self.nr_frames = nr_frames
         self.prompt_prefix = prompt_prefix
         self.fps = fps
+        self.temporal_dataset = temporal_dataset
 
     def setup(self, stage: Optional[str] = None) -> None:
         root_dir = pathlib.Path(self.data_root) / 'hmdb51'

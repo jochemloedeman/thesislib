@@ -50,7 +50,6 @@ class TemporalCLIP(pl.LightningModule):
         self._build_vca_module(vca_settings)
         self._build_tca_module(tca_settings)
         self._create_validation_metrics()
-        self._create_test_metrics()
 
     def _build_permutation(self, permutation_mode):
         if permutation_mode:
@@ -104,19 +103,8 @@ class TemporalCLIP(pl.LightningModule):
             top_k=1
         )
 
-        self._create_test_metrics()
 
-    def _create_test_metrics(self):
-        self.test_classwise_top1_accuracy = ClipAccuracy(
-            num_classes=self.temporal_dataset['number_of_classes'],
-            average='none',
-            top_k=1,
-        )
-        self.test_classwise_top5_accuracy = ClipAccuracy(
-            num_classes=self.temporal_dataset['number_of_classes'],
-            average='none',
-            top_k=5,
-        )
+    def _create_test_metrics(self, temporal_dataset):
         self.test_top5_accuracy = ClipAccuracy(
             top_k=5,
         )
@@ -125,20 +113,21 @@ class TemporalCLIP(pl.LightningModule):
         )
         self.temporal_top1_accuracy = ClipAccuracy(
             top_k=1,
-            subset=self.temporal_dataset['temporal']
+            subset=temporal_dataset['temporal']
         )
         self.temporal_top5_accuracy = ClipAccuracy(
             top_k=5,
-            subset=self.temporal_dataset['temporal']
+            subset=temporal_dataset['temporal']
         )
         self.static_top1_accuracy = ClipAccuracy(
             top_k=1,
-            subset=self.temporal_dataset['static']
+            subset=temporal_dataset['static']
         )
         self.static_top5_accuracy = ClipAccuracy(
             top_k=5,
-            subset=self.temporal_dataset['static']
+            subset=temporal_dataset['static']
         )
+
 
     def forward(self, frames):
         video_features = self._encode_image(frames)
@@ -221,16 +210,6 @@ class TemporalCLIP(pl.LightningModule):
         self.test_top1_accuracy(logits_per_video, labels, video_indices)
         self.test_top5_accuracy(logits_per_video, labels, video_indices)
 
-        self.test_classwise_top1_accuracy(
-            logits_per_video,
-            labels,
-            video_indices
-        )
-        self.test_classwise_top5_accuracy(
-            logits_per_video,
-            labels,
-            video_indices
-        )
         self.temporal_top1_accuracy(
             logits_per_video,
             labels,
@@ -253,24 +232,6 @@ class TemporalCLIP(pl.LightningModule):
         )
 
     def test_epoch_end(self, outputs) -> None:
-        top1_acc_per_class = self.test_classwise_top1_accuracy.compute()
-        top5_acc_per_class = self.test_classwise_top5_accuracy.compute()
-        temporal_top1_acc = top1_acc_per_class[
-            self.temporal_dataset['temporal']].mean()
-        static_top1_acc = top1_acc_per_class[
-            self.temporal_dataset['static']].mean()
-
-        temporal_top5_acc = top5_acc_per_class[
-            self.temporal_dataset['temporal']].mean()
-        static_top5_acc = top5_acc_per_class[
-            self.temporal_dataset['static']].mean()
-
-        self.log('test_top1_accuracy_temporal', temporal_top1_acc)
-        self.log('test_top1_accuracy_static', static_top1_acc)
-
-        self.log('test_top5_accuracy_temporal', temporal_top5_acc)
-        self.log('test_top5_accuracy_static', static_top5_acc)
-
         self.log('test_top1_accuracy_total', self.test_top1_accuracy.compute())
         self.log('test_top5_accuracy_total', self.test_top5_accuracy.compute())
         self.log('temporal_top1_accuracy',
@@ -422,6 +383,7 @@ class TemporalCLIP(pl.LightningModule):
             param.requires_grad = False
 
     def on_test_start(self) -> None:
+        self._create_test_metrics(self.trainer.datamodule.temporal_dataset)
         self.index_to_prompt = self.trainer.datamodule.index_to_prompt
         self.index_to_label = self.trainer.datamodule.index_to_label
         self.class_to_id = self.trainer.datamodule.class_to_id
