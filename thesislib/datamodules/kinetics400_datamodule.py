@@ -8,8 +8,6 @@ import torch
 import torchvision.transforms
 from pytorchvideo.data import Kinetics
 from torch.utils.data import DataLoader
-from torchvision.transforms import InterpolationMode
-
 from thesislib.temporal import TemporalLabel
 
 

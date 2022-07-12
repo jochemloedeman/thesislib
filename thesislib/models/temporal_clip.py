@@ -27,6 +27,8 @@ class TemporalCLIP(pl.LightningModule):
             tca_settings: Union[Dict, None],
             temporal_dataset: Dict,
             optimizer: str,
+            lr_scheduler: Optional[str] = 'cosine',
+            epochs: Optional[int] = 150,
             permutation_mode: Optional[str] = None,
     ) -> None:
         super().__init__()
@@ -36,6 +38,8 @@ class TemporalCLIP(pl.LightningModule):
         self.nr_pred_frames = nr_pred_frames
         self.nr_context_frames = nr_context_frames
         self.optimizer = optimizer
+        self.lr_scheduler = lr_scheduler
+        self.epochs = epochs
         self._get_pred_frames()
         self._build_permutation(permutation_mode)
 
@@ -162,10 +166,17 @@ class TemporalCLIP(pl.LightningModule):
                 weight_decay=0.0001,
                 momentum=0.9
             )
-        scheduler = torch.optim.lr_scheduler.MultiStepLR(
-            optimizer=optimizer,
-            milestones=[80, 120]
-        )
+        if self.lr_scheduler == 'cosine':
+            scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+                optimizer=optimizer,
+                T_max=self.epochs,
+                verbose=True
+            )
+        else:
+            scheduler = torch.optim.lr_scheduler.MultiStepLR(
+                optimizer=optimizer,
+                milestones=[80, 120]
+            )
         return {'optimizer': optimizer,
                 'lr_scheduler': {
                     'scheduler': scheduler,
