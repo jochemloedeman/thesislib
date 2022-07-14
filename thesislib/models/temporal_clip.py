@@ -31,6 +31,7 @@ class TemporalCLIP(pl.LightningModule):
             epochs: Optional[int] = 150,
             permutation_mode: Optional[str] = None,
     ) -> None:
+
         super().__init__()
         self.save_hyperparameters()
         self.clip_model, _ = clip.load(clip_architecture, device='cpu')
@@ -103,7 +104,6 @@ class TemporalCLIP(pl.LightningModule):
             top_k=1
         )
 
-
     def _create_test_metrics(self, temporal_dataset):
         self.test_top5_accuracy = ClipAccuracy(
             top_k=5,
@@ -127,7 +127,6 @@ class TemporalCLIP(pl.LightningModule):
             top_k=5,
             subset=temporal_dataset['static']
         )
-
 
     def forward(self, frames):
         video_features = self._encode_image(frames)

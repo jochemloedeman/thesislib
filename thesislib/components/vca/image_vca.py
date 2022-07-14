@@ -1,3 +1,5 @@
+import random
+
 import pytorch_lightning as pl
 import torch
 import torchvision
@@ -10,21 +12,29 @@ class ImageVCA(pl.LightningModule):
             vector_dim,
             pretrained,
             video_resolution=112,
+            image_sample_mode='center',
             **kwargs,
     ) -> None:
         super().__init__()
         self.nr_output_vectors = nr_output_vectors
         self.vector_dim = vector_dim
         self.video_resolution = video_resolution
+        self.sample_mode = image_sample_mode
         self.model = self._generate_resnet(pretrained)
 
     def forward(self, frames):
         frames = self._resize(frames)
-        nr_frames = frames.shape[2]
-        middle_frames = frames[:, :, nr_frames // 2, :, :].squeeze()
-        flat_embeddings = self.model(middle_frames)
+        input_frame = self._sample_frame(frames)
+        flat_embeddings = self.model(input_frame)
         return flat_embeddings.reshape(
             -1, self.nr_output_vectors, self.vector_dim)
+
+    def _sample_frame(self, frames):
+        if self.sample_mode == 'random':
+            frame_idx = random.randint(0, frames.shape[2] - 1)
+            return frames[:, :, frame_idx, :, :].squeeze()
+        else:
+            return frames[:, :, frames.shape[2] // 2, :, :].squeeze()
 
     def _resize(self, frames):
         frame_shape = frames.shape
