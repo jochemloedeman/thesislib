@@ -38,7 +38,7 @@ class Kinetics400DataModule(pl.LightningDataModule):
         root_dir = pathlib.Path(self.data_root) / 'kinetics'
         labels_to_id = root_dir / 'annotations' / 'labels_to_id.csv'
         self.id_to_class = pd.read_csv(labels_to_id).to_dict()['name']
-        self.class_to_id = {v: k for k,v in self.id_to_class.items()}
+        self.class_to_id = {v: k for k, v in self.id_to_class.items()}
         self.train_transform = pytorchvideo.transforms.ApplyTransformToKey(
             key='video',
             transform=torchvision.transforms.Compose([
@@ -50,7 +50,8 @@ class Kinetics400DataModule(pl.LightningDataModule):
                     std=(0.26862954, 0.26130258, 0.27577711)
                 ),
                 pytorchvideo.transforms.ShortSideScale(size=256),
-                torchvision.transforms.RandomCrop(size=224)
+                torchvision.transforms.RandomCrop(size=224),
+                torchvision.transforms.RandomHorizontalFlip(p=0.5),
             ])
         )
         self.test_transform = pytorchvideo.transforms.ApplyTransformToKey(
@@ -64,13 +65,13 @@ class Kinetics400DataModule(pl.LightningDataModule):
                     std=(0.26862954, 0.26130258, 0.27577711)
                 ),
                 pytorchvideo.transforms.ShortSideScale(size=224),
-                torchvision.transforms.CenterCrop(size=224)
+                torchvision.transforms.CenterCrop(size=224),
             ])
         )
         if stage == 'fit':
             self.kinetics_train = Kinetics(
                 data_path=(
-                            root_dir / 'annotations' / 'train.csv').as_posix(),
+                        root_dir / 'annotations' / 'train.csv').as_posix(),
                 clip_sampler=pytorchvideo.data.RandomClipSampler(
                     clip_duration=float(self.nr_frames / self.fps)
                 ),
@@ -81,7 +82,7 @@ class Kinetics400DataModule(pl.LightningDataModule):
             )
             self.kinetics_val = Kinetics(
                 data_path=(
-                            root_dir / 'annotations' / 'validate.csv')
+                        root_dir / 'annotations' / 'validate.csv')
                 .as_posix(),
                 clip_sampler=pytorchvideo.data.RandomClipSampler(
                     clip_duration=float(self.nr_frames / self.fps)

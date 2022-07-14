@@ -25,3 +25,9 @@ class ConstantVCA(pl.LightningModule):
     def forward(self, frames):
         batch_size = len(frames)
         return self.vca_vectors.repeat(batch_size, 1, 1).type_as(frames)
+
+    def set_train_transforms(self):
+        pass
+
+    def set_val_test_transforms(self):
+        pass

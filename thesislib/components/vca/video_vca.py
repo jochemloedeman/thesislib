@@ -105,3 +105,9 @@ class VideoVCA(pl.LightningModule):
             std=stds
         )
         return normalized_frames.permute(0, 2, 1, 3, 4)
+
+    def set_train_transforms(self):
+        pass
+
+    def set_val_test_transforms(self):
+        pass

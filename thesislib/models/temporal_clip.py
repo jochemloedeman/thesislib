@@ -383,6 +383,7 @@ class TemporalCLIP(pl.LightningModule):
 
     def on_test_start(self) -> None:
         self._create_test_metrics(self.trainer.datamodule.temporal_dataset)
+        self.visual_context_addition.set_val_test_transforms()
         self.index_to_prompt = self.trainer.datamodule.index_to_prompt
         self.index_to_label = self.trainer.datamodule.index_to_label
         self.class_to_id = self.trainer.datamodule.class_to_id
@@ -393,3 +394,9 @@ class TemporalCLIP(pl.LightningModule):
         self.index_to_label = self.trainer.datamodule.index_to_label
         self.class_to_id = self.trainer.datamodule.class_to_id
         self._tokenize_classes()
+
+    def on_validation_start(self) -> None:
+        self.visual_context_addition.set_val_test_transforms()
+
+    def on_train_start(self) -> None:
+        self.visual_context_addition.set_train_transforms()
