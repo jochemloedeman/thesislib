@@ -1,17 +1,15 @@
-from typing import Dict, Union, Optional
+from typing import Dict, Union, Optional, List
 
 import numpy as np
 import pytorch_lightning as pl
 import torch
-import torchmetrics
-import torchvision.transforms
 from clip import clip
 from clip.simple_tokenizer import SimpleTokenizer
 from torch.nn.functional import cross_entropy
 
 from ..components.tca import ConstantTCA, LMTCA
 from ..components.vca import ConstantVCA, VideoVCA, ImageVCA
-from ..metrics import ClipAccuracy
+from ..metrics.retrieval_recall import RetrievalRecall
 from ..permutation import VCAPermutation
 
 
@@ -87,15 +85,15 @@ class RetrievalCLIP(pl.LightningModule):
     def _create_validation_metrics(self):
         pass
 
-    def _create_test_metrics(self, temporal_dataset):
-        pass
+    def _create_test_metrics(self):
+        self.retrieval_recall = RetrievalRecall()
 
-    def forward(self, frames):
+    def forward(self, frames: torch.Tensor, captions: List[str]):
         video_features = self._encode_image(frames)
         video_features = video_features.mean(dim=1)
         video_features = video_features / video_features.norm(dim=1,
                                                               keepdim=True)
-        text_features = self._encode_text()
+        text_features = self._encode_text(captions)
         text_features = text_features / text_features.norm(dim=1,
                                                            keepdim=True)
         logit_scale = self.clip_model.logit_scale.exp()
@@ -134,11 +132,14 @@ class RetrievalCLIP(pl.LightningModule):
                 }}
 
     def training_step(self, batch, batch_idx):
-        frames, labels = (
+        frames, labels, video_indices = (
             batch["video"],
-            batch["label"]
+            batch["label"],
+            batch["video_index"].type(torch.int32)
         )
-        logits_per_video, logits_per_text = self(frames)
+        labels = labels.tolist()
+        captions = [self.index_to_caption[label] for label in labels]
+        logits_per_video, logits_per_text = self(frames, captions)
         loss = cross_entropy(logits_per_video, labels)
         self.log('train_loss', loss)
 
@@ -163,46 +164,15 @@ class RetrievalCLIP(pl.LightningModule):
             batch["label"],
             batch["video_index"].type(torch.int32)
         )
-        if isinstance(labels, list):
-            labels = torch.tensor([self.class_to_id[label] for label in labels],
-                                  device=self.device)
-
-        logits_per_video, logits_per_text = self(frames)
-        self.test_top1_accuracy(logits_per_video, labels, video_indices)
-        self.test_top5_accuracy(logits_per_video, labels, video_indices)
-
-        self.temporal_top1_accuracy(
-            logits_per_video,
-            labels,
-            video_indices
-        )
-        self.temporal_top5_accuracy(
-            logits_per_video,
-            labels,
-            video_indices
-        )
-        self.static_top1_accuracy(
-            logits_per_video,
-            labels,
-            video_indices
-        )
-        self.static_top5_accuracy(
-            logits_per_video,
-            labels,
-            video_indices
-        )
+        captions = list(self.index_to_caption.values())
+        logits_per_video, logits_per_text = self(frames, captions)
+        self.retrieval_recall.update(logits_per_video, video_indices)
 
     def test_epoch_end(self, outputs) -> None:
-        self.log('test_top1_accuracy_total', self.test_top1_accuracy.compute())
-        self.log('test_top5_accuracy_total', self.test_top5_accuracy.compute())
-        self.log('temporal_top1_accuracy',
-                 self.temporal_top1_accuracy.compute())
-        self.log('temporal_top5_accuracy',
-                 self.temporal_top5_accuracy.compute())
-        self.log('static_top1_accuracy',
-                 self.static_top1_accuracy.compute())
-        self.log('static_top5_accuracy',
-                 self.static_top5_accuracy.compute())
+        r1_tot, r5_tot, r10_tot = self.retrieval_recall.compute()
+        self.log("r1", r1_tot)
+        self.log("r5", r5_tot)
+        self.log("r10", r10_tot)
 
     def validation_epoch_end(self, outputs) -> None:
         top1_acc_per_class = self.classwise_top1_accuracy.compute()
@@ -227,17 +197,18 @@ class RetrievalCLIP(pl.LightningModule):
         self.log('val_top1_accuracy_total', self.top1_accuracy)
         self.log('val_top5_accuracy_total', self.top5_accuracy)
 
-    def _encode_text(self) -> torch.Tensor:
-        eot_indices = (self.tokenized_prompts
+    def _encode_text(self, captions: List[str]) -> torch.Tensor:
+        tokenized_captions = clip.tokenize(captions).to(self.device)
+        eot_indices = (tokenized_captions
                        == self.eot_token).nonzero(as_tuple=True)[1]
 
-        x = self.clip_model.token_embedding(self.tokenized_prompts)
+        x = self.clip_model.token_embedding(tokenized_captions)
 
         if self.textual_context_addition:
             x, eot_indices = self.textual_context_addition(
                 x,
                 eot_indices,
-                list(self.index_to_prompt.values()),
+                captions,
             )
 
         x = self._modified_text_encode(x, eot_indices)
@@ -334,31 +305,23 @@ class RetrievalCLIP(pl.LightningModule):
 
         self.pred_frames = [round(frame_idx) for frame_idx in pred_frames]
 
-    def _tokenize_classes(self) -> None:
-        class_prompts = list(self.index_to_prompt.values())
-        tokenized_prompts = clip.tokenize(class_prompts)
-        self.tokenized_prompts = tokenized_prompts.to(self.device)
-
     def _freeze_components(self) -> None:
         for param in self.clip_model.parameters():
             param.requires_grad = False
 
     def on_test_start(self) -> None:
-        self._create_test_metrics(self.trainer.datamodule.temporal_dataset)
-        self.visual_context_addition.set_val_test_transforms()
-        self.index_to_prompt = self.trainer.datamodule.index_to_prompt
-        self.index_to_label = self.trainer.datamodule.index_to_label
-        self.class_to_id = self.trainer.datamodule.class_to_id
-        self._tokenize_classes()
+        self._create_test_metrics()
+        if self.visual_context_addition:
+            self.visual_context_addition.set_val_test_transforms()
+        self.index_to_caption = self.trainer.datamodule.index_to_caption
 
     def on_fit_start(self) -> None:
-        self.index_to_prompt = self.trainer.datamodule.index_to_prompt
-        self.index_to_label = self.trainer.datamodule.index_to_label
-        self.class_to_id = self.trainer.datamodule.class_to_id
-        self._tokenize_classes()
+        self.index_to_caption = self.trainer.datamodule.index_to_caption
 
     def on_validation_start(self) -> None:
-        self.visual_context_addition.set_val_test_transforms()
+        if self.visual_context_addition:
+            self.visual_context_addition.set_val_test_transforms()
 
     def on_train_start(self) -> None:
-        self.visual_context_addition.set_train_transforms()
+        if self.visual_context_addition:
+            self.visual_context_addition.set_train_transforms()

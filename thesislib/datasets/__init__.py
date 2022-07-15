@@ -4,3 +4,4 @@ from .flickr30k import Flickr30kDataset
 from .msrvtt import MSRVTTFrames
 from .kinetics400 import Kinetics
 from .video_dataset import VideoFrameDataset
+from .msrvtt_to_pytorchvideo import MSRVTT
