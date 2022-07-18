@@ -86,7 +86,7 @@ class RetrievalCLIP(pl.LightningModule):
         pass
 
     def _create_test_metrics(self):
-        self.retrieval_recall = RetrievalRecall()
+        self.retrieval_recall = RetrievalRecall(self.trainer.datamodule.txt2vis)
 
     def forward(self, frames: torch.Tensor, captions: List[str]):
         video_features = self._encode_image(frames)

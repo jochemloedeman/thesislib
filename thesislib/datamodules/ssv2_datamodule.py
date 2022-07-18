@@ -7,8 +7,6 @@ import torchvision.transforms
 from torch.utils.data import DataLoader
 from torchvision.transforms import InterpolationMode
 
-from thesislib.datasets import VideoFrameDataset
-from thesislib.datasets.video_dataset import ImglistToTensor
 from thesislib.temporal import TemporalLabel
 
 

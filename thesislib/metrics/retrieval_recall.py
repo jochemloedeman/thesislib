@@ -7,10 +7,11 @@ from torchmetrics import Metric
 
 
 class RetrievalRecall(Metric):
-    def __init__(self):
+    def __init__(self, txt2vis):
         super().__init__()
         self.add_state("preds", default=[])
         self.add_state("indices", default=[])
+        self.txt2vis = txt2vis
 
     def update(self, preds, indices):
         self.preds.append(preds)

@@ -1,6 +1,4 @@
 from .kinetics400_datamodule import Kinetics400DataModule
-from .ssv2_datamodule import SSV2DataModule
-from .kinetics400_frames_datamodule import Kinetics400FramesDataModule
 from .kinetics400_permutation_datamodule import Kinetics400PermutationDataModule
 from .hmdb51_datamodule import HMDB51DataModule
 from .msrvtt_datamodule import MSRVTTDataModule

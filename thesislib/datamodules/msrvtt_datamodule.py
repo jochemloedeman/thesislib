@@ -1,3 +1,4 @@
+from collections import defaultdict
 import pathlib
 from typing import Optional
 
@@ -36,9 +37,10 @@ class MSRVTTDataModule(pl.LightningDataModule):
         root_dir = pathlib.Path(self.data_root) / 'msrvtt'
         index_to_caption_path = (root_dir /
                                  'annotations' /
-                                 'MSRVTT_JSFUSION_test_debug.csv')
-        annotations = pd.read_csv(index_to_caption_path).to_dict()
-        self.index_to_caption = annotations['sentence']
+                                 'MSRVTT_JSFUSION_test.csv')
+        annotations = pd.read_csv(index_to_caption_path)
+        self.index_to_caption = annotations.to_dict()['sentence']
+        self.create_txt2vis(annotations)
         self.train_transform = pytorchvideo.transforms.ApplyTransformToKey(
             key='video',
             transform=torchvision.transforms.Compose([
@@ -94,15 +96,27 @@ class MSRVTTDataModule(pl.LightningDataModule):
             )
         if stage == 'test':
             self.msrvtt_test = MSRVTT(
-                data_path=(root_dir / 'annotations' / 'test_debug.csv').as_posix(),
+                data_path=(root_dir / 'annotations' / 'test.csv').as_posix(),
                 clip_sampler=pytorchvideo.data.UniformClipSampler(
                     clip_duration=float(self.nr_frames / self.fps)
                 ),
                 video_sampler=torch.utils.data.SequentialSampler,
-                video_path_prefix=(root_dir / 'test_videos').as_posix(),
+                video_path_prefix=(root_dir / 'test_videos' / 'TestVideo/').as_posix(),
                 decode_audio=False,
                 transform=self.test_transform
             )
+
+    def create_txt2vis(self, annotations: pd.DataFrame):
+        vis2txt = defaultdict(list)
+        txt2vis = {}
+        for index, row in annotations.iterrows():
+            vis2txt[row['video_id']] += [index]
+        for video_index, (key, values) in enumerate(vis2txt.items()):
+            for value in values:
+                txt2vis[value] = video_index
+        self.txt2vis = txt2vis
+        self.vis2txt = vis2txt
+
 
     def train_dataloader(self):
         return DataLoader(
