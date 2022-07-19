@@ -1,6 +1,7 @@
 from collections import defaultdict
 
 import numpy as np
+from pip import main
 import torch
 from scipy.special import softmax
 from torchmetrics import Metric
@@ -8,7 +9,7 @@ from torchmetrics import Metric
 
 class RetrievalRecall(Metric):
     def __init__(self, txt2vis):
-        super().__init__()
+        super().__init__(full_state_update=False)
         self.add_state("preds", default=[])
         self.add_state("indices", default=[])
         self.txt2vis = txt2vis
@@ -34,9 +35,9 @@ class RetrievalRecall(Metric):
         for i, idx in enumerate(indices):
             idx = idx.item()
             inv_index[idx] += [i]
-        for idx in inv_index:
+        for idx, items in sorted(inv_index.items()):
             aggregated_tensors.append(
-                tensors[inv_index[idx]].mean(dim=0)
+                tensors[items].mean(dim=0)
             )
 
         return torch.stack(aggregated_tensors)
@@ -64,3 +65,19 @@ class RetrievalRecall(Metric):
         r10_tot = 100.0 * len(np.where(ranks < 10)[0]) / len(ranks)
 
         return r1_tot, r5_tot, r10_tot
+
+if __name__ == "__main__":
+    txt2vis = {
+        idx: idx for idx in range(1000)
+    }
+    retrieval_recall = RetrievalRecall(
+        txt2vis=txt2vis
+    )
+    for i in range(1000):
+        for j in range(2):
+            preds = torch.zeros(2, 1000)
+            preds[:, i] = torch.tensor([0.1, 0.1])
+            indices = torch.tensor([i] * 2)
+            retrieval_recall.update(preds, indices)
+    metrics = retrieval_recall.compute()
+    print(metrics)
