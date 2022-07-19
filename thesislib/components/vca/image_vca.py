@@ -9,7 +9,7 @@ class ImageVCA(pl.LightningModule):
             self,
             nr_output_vectors,
             vector_dim,
-            pretrained,
+            pretrained=False,
             video_resolution=112,
             image_sample_mode='center',
             **kwargs,
