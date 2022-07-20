@@ -16,14 +16,14 @@ class S3D(nn.Module):
                          padding=(0, 1, 1)),
             Mixed_3b(),
             Mixed_3c(),
-            nn.MaxPool3d(kernel_size=(3, 3, 3), stride=(1, 2, 2),
+            nn.MaxPool3d(kernel_size=(3, 3, 3), stride=(2, 2, 2),
                          padding=(1, 1, 1)),
             Mixed_4b(),
             Mixed_4c(),
             Mixed_4d(),
             Mixed_4e(),
             Mixed_4f(),
-            nn.MaxPool3d(kernel_size=(2, 2, 2), stride=(1, 2, 2),
+            nn.MaxPool3d(kernel_size=(2, 2, 2), stride=(2, 2, 2),
                          padding=(0, 0, 0)),
             Mixed_5b(),
             Mixed_5c(),
@@ -33,7 +33,7 @@ class S3D(nn.Module):
 
     def forward(self, x):
         y = self.base(x)
-        y = F.avg_pool3d(y, (2, y.size(3), y.size(4)), stride=1)
+        y = F.avg_pool3d(y, (1, y.size(3), y.size(4)), stride=1)
         y = self.fc(y)
         y = y.view(y.size(0), y.size(1), y.size(2))
         logits = torch.mean(y, 2)
