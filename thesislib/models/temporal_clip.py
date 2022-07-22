@@ -128,7 +128,7 @@ class TemporalCLIP(pl.LightningModule):
             subset=temporal_dataset['static']
         )
 
-    def forward(self, frames):
+    def train_forward(self, frames):
         video_features = self._encode_image(frames)
         video_features = video_features.mean(dim=1)
         video_features = video_features / video_features.norm(dim=1,
@@ -176,7 +176,7 @@ class TemporalCLIP(pl.LightningModule):
             batch["video"],
             batch["label"]
         )
-        logits_per_video, logits_per_text = self(frames)
+        logits_per_video, logits_per_text = self.train_forward(frames)
         loss = cross_entropy(logits_per_video, labels)
         self.log('train_loss', loss)
 
@@ -372,10 +372,15 @@ class TemporalCLIP(pl.LightningModule):
 
         self.pred_frames = [round(frame_idx) for frame_idx in pred_frames]
 
-    def _tokenize_classes(self) -> None:
-        class_prompts = list(self.index_to_prompt.values())
-        tokenized_prompts = clip.tokenize(class_prompts)
-        self.tokenized_prompts = tokenized_prompts.to(self.device)
+    def _tokenize_prompts(self) -> None:
+        class_prompts = list(self.index_to_classes.values())
+        prompt_ensemble = []
+        for prefix in self.prompt_prefixes: 
+            full_prompts = [prefix + " " + prompt for prompt in class_prompts]
+            tokenized_prompts = clip.tokenize(full_prompts)
+            prompt_ensemble.append(tokenized_prompts)
+        
+        self.tokenized_prompts = torch.stack(prompt_ensemble).to(self.device)
 
     def _freeze_components(self) -> None:
         for param in self.clip_model.parameters():
@@ -383,17 +388,17 @@ class TemporalCLIP(pl.LightningModule):
 
     def on_test_start(self) -> None:
         self._create_test_metrics(self.trainer.datamodule.temporal_dataset)
+        self.prompt_prefixes = self.trainer.datamodule.prompt_prefixes
         self.visual_context_addition.set_val_test_transforms()
-        self.index_to_prompt = self.trainer.datamodule.index_to_prompt
-        self.index_to_label = self.trainer.datamodule.index_to_label
+        self.index_to_classes = self.trainer.datamodule.index_to_classes
         self.class_to_id = self.trainer.datamodule.class_to_id
-        self._tokenize_classes()
+        self._tokenize_prompts()
 
     def on_fit_start(self) -> None:
-        self.index_to_prompt = self.trainer.datamodule.index_to_prompt
-        self.index_to_label = self.trainer.datamodule.index_to_label
+        self.prompt_prefixes = self.trainer.datamodule.prompt_prefixes
+        self.index_to_classes = self.trainer.datamodule.index_to_classes
         self.class_to_id = self.trainer.datamodule.class_to_id
-        self._tokenize_classes()
+        self._tokenize_prompts()
 
     def on_validation_start(self) -> None:
         self.visual_context_addition.set_val_test_transforms()

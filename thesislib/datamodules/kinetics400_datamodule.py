@@ -19,7 +19,6 @@ class Kinetics400DataModule(pl.LightningDataModule):
             test_batch_size,
             num_workers,
             nr_frames,
-            prompt_prefix,
             fps,
             temporal_dataset,
             **kwargs,
@@ -30,9 +29,17 @@ class Kinetics400DataModule(pl.LightningDataModule):
         self.test_batch_size = test_batch_size
         self.num_workers = num_workers
         self.nr_frames = nr_frames
-        self.prompt_prefix = prompt_prefix
         self.fps = fps
         self.temporal_dataset = temporal_dataset
+
+        self.prompt_prefixes = [
+            "A video of", 
+            "A video of someone", 
+            "A video of a person", 
+            "A photo of", 
+            "A photo of someone", 
+            "A photo of a person"
+        ]
 
     def setup(self, stage: Optional[str] = None) -> None:
         root_dir = pathlib.Path(self.data_root) / 'kinetics'
@@ -104,8 +111,7 @@ class Kinetics400DataModule(pl.LightningDataModule):
                 transform=self.test_transform
             )
 
-        self._calculate_index_to_prompt()
-        self._calculate_index_to_label()
+        self._calculate_index_to_classes()
         print()
 
     def train_dataloader(self):
@@ -135,22 +141,13 @@ class Kinetics400DataModule(pl.LightningDataModule):
             pin_memory=True
         )
 
-    def _calculate_index_to_prompt(self):
+    def _calculate_index_to_classes(self):
         classes = [
             class_str.replace("_", " ")
             for class_str in self.id_to_class.values()
         ]
-        self.prompts = [
-            self.prompt_prefix + class_str.lower() for class_str in classes
-        ]
-        self.index_to_prompt = {
-            idx: self.prompts[idx] for idx in range(len(self.prompts))
-        }
-
-    def _calculate_index_to_label(self):
-        self.index_to_label = {
-            idx: TemporalLabel.TEMPORAL
-            for idx in range(len(self.id_to_class.keys()))
+        self.index_to_classes = {
+            idx: classes[idx] for idx in range(len(classes))
         }
 
 
