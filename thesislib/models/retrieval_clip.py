@@ -1,3 +1,4 @@
+import random
 from typing import Dict, Union, Optional, List
 
 import numpy as np
@@ -43,10 +44,9 @@ class RetrievalCLIP(pl.LightningModule):
         self.index_to_prompt = None
         self.index_to_label = None
         self.class_to_id = None
-        self._freeze_components()
+        self.freeze_components()
         self._build_vca_module(vca_settings)
         self._build_tca_module(tca_settings)
-        self._create_validation_metrics()
 
     def _build_permutation(self, permutation_mode):
         if permutation_mode:
@@ -81,9 +81,6 @@ class RetrievalCLIP(pl.LightningModule):
             self.visual_context_addition = ConstantVCA(
                 **vca_settings
             )
-
-    def _create_validation_metrics(self):
-        pass
 
     def _create_test_metrics(self):
         self.retrieval_recall = RetrievalRecall(self.trainer.datamodule.txt2vis)
@@ -131,32 +128,38 @@ class RetrievalCLIP(pl.LightningModule):
                     'monitor': 'val_loss',
                 }}
 
+    def get_trainval_captions(self, video_indices):
+        video_indices = video_indices.tolist()
+        captions = [random.choice(self.index_to_caption[index])
+                    for index in video_indices]
+        return captions
+
+
     def training_step(self, batch, batch_idx):
-        frames, labels, video_indices = (
+        frames, labels = (
             batch["video"],
             batch["label"],
-            batch["video_index"].type(torch.int32)
         )
-        labels = labels.tolist()
-        captions = [self.index_to_caption[label] for label in labels]
+        captions = self.get_trainval_captions(labels)
         logits_per_video, logits_per_text = self(frames, captions)
-        loss = cross_entropy(logits_per_video, labels)
-        self.log('train_loss', loss)
-
+        labels = torch.arange(len(logits_per_video)).to(self.device)
+        video_loss = cross_entropy(logits_per_video, labels)
+        text_loss = cross_entropy(logits_per_text, labels)
+        loss = (video_loss + text_loss) / 2
         return loss
 
     def validation_step(self, batch, batch_idx):
-        frames, labels = (
+        frames, video_indices = (
             batch["video"],
             batch["label"]
         )
-        logits_per_video, logits_per_text = self(frames)
-        loss = cross_entropy(logits_per_video, labels)
+        captions = self.get_trainval_captions(video_indices)
+        logits_per_video, logits_per_text = self(frames, captions)
+        labels = torch.arange(len(logits_per_video)).to(self.device)
+        video_loss = cross_entropy(logits_per_video, labels)
+        text_loss = cross_entropy(logits_per_text, labels)
+        loss = (video_loss + text_loss) / 2
         self.log('val_loss', loss, prog_bar=True, on_epoch=True, on_step=True)
-        self.top1_accuracy(logits_per_video, labels)
-        self.top5_accuracy(logits_per_video, labels)
-        self.classwise_top1_accuracy(logits_per_video, labels)
-        self.classwise_top5_accuracy(logits_per_video, labels)
 
     def test_step(self, batch, batch_idx):
         frames, labels, video_indices = (
@@ -164,7 +167,7 @@ class RetrievalCLIP(pl.LightningModule):
             batch["label"],
             batch["video_index"].type(torch.int32)
         )
-        captions = list(self.index_to_caption.values())
+        captions = [captions[0] for captions in self.index_to_caption.values()]
         logits_per_video, logits_per_text = self(frames, captions)
         self.retrieval_recall.update(logits_per_video, video_indices)
 
@@ -173,29 +176,6 @@ class RetrievalCLIP(pl.LightningModule):
         self.log("r1", r1_tot)
         self.log("r5", r5_tot)
         self.log("r10", r10_tot)
-
-    def validation_epoch_end(self, outputs) -> None:
-        top1_acc_per_class = self.classwise_top1_accuracy.compute()
-        top5_acc_per_class = self.classwise_top5_accuracy.compute()
-
-        temporal_top1_acc = top1_acc_per_class[
-            self.temporal_dataset['temporal']].mean()
-        static_top1_acc = top1_acc_per_class[
-            self.temporal_dataset['static']].mean()
-
-        temporal_top5_acc = top5_acc_per_class[
-            self.temporal_dataset['temporal']].mean()
-        static_top5_acc = top5_acc_per_class[
-            self.temporal_dataset['static']].mean()
-
-        self.log('val_top1_accuracy_temporal', temporal_top1_acc)
-        self.log('val_top1_accuracy_static', static_top1_acc)
-
-        self.log('val_top5_accuracy_temporal', temporal_top5_acc)
-        self.log('val_top5_accuracy_static', static_top5_acc)
-
-        self.log('val_top1_accuracy_total', self.top1_accuracy)
-        self.log('val_top5_accuracy_total', self.top5_accuracy)
 
     def _encode_text(self, captions: List[str]) -> torch.Tensor:
         tokenized_captions = clip.tokenize(captions).to(self.device)
@@ -305,7 +285,7 @@ class RetrievalCLIP(pl.LightningModule):
 
         self.pred_frames = [round(frame_idx) for frame_idx in pred_frames]
 
-    def _freeze_components(self) -> None:
+    def freeze_components(self) -> None:
         for param in self.clip_model.parameters():
             param.requires_grad = False
 

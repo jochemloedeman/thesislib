@@ -113,9 +113,7 @@ class HMDB51DataModule(pl.LightningDataModule):
                 split_id=self.data_split,
                 transform=self.test_transform
             )
-        self._calculate_index_to_prompt()
-        self._calculate_index_to_label()
-        print()
+        self._calculate_index_to_classes()
 
     def train_dataloader(self):
         return DataLoader(
@@ -144,18 +142,13 @@ class HMDB51DataModule(pl.LightningDataModule):
             pin_memory=True
         )
 
-    def _calculate_index_to_prompt(self):
-        self.index_to_prompt = {
-            idx: (self.prompt_prefix
-                  + self.class_to_prompt[self.id_to_class[idx]].lower())
-            for idx in range(len(self.id_to_class))
-        }
-        self.prompts = list(self.class_to_prompt.values())
-
-    def _calculate_index_to_label(self):
-        self.index_to_label = {
-            idx: TemporalLabel.TEMPORAL
-            for idx in range(len(self.id_to_class.keys()))
+    def _calculate_index_to_classes(self):
+        classes = [
+            class_str.replace("_", " ")
+            for class_str in self.id_to_class.values()
+        ]
+        self.index_to_classes = {
+            idx: classes[idx] for idx in range(len(classes))
         }
 
 

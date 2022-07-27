@@ -12,6 +12,7 @@ from torch.utils.data import DataLoader
 
 from thesislib.datasets import MSRVTT
 
+
 class MSRVTTDataModule(pl.LightningDataModule):
     def __init__(
             self,
@@ -20,7 +21,6 @@ class MSRVTTDataModule(pl.LightningDataModule):
             test_batch_size,
             num_workers,
             nr_frames,
-            prompt_prefix,
             fps,
             **kwargs,
     ):
@@ -30,17 +30,10 @@ class MSRVTTDataModule(pl.LightningDataModule):
         self.test_batch_size = test_batch_size
         self.num_workers = num_workers
         self.nr_frames = nr_frames
-        self.prompt_prefix = prompt_prefix
         self.fps = fps
 
     def setup(self, stage: Optional[str] = None) -> None:
         root_dir = pathlib.Path(self.data_root) / 'msrvtt'
-        index_to_caption_path = (root_dir /
-                                 'annotations' /
-                                 'MSRVTT_JSFUSION_test.csv')
-        annotations = pd.read_csv(index_to_caption_path)
-        self.index_to_caption = annotations.to_dict()['sentence']
-        self.create_txt2vis(annotations)
         self.train_transform = pytorchvideo.transforms.ApplyTransformToKey(
             key='video',
             transform=torchvision.transforms.Compose([
@@ -71,6 +64,12 @@ class MSRVTTDataModule(pl.LightningDataModule):
             ])
         )
         if stage == 'fit':
+            trainval_captions_path = (root_dir /
+                                      'annotations' /
+                                      'trainval_captions.csv')
+            annotations = pd.read_csv(trainval_captions_path)
+            self.index_to_caption = self.create_caption_index(annotations)
+            self.txt2vis, self.vis2txt = self.create_index_mappings(annotations)
             self.msrvtt_train = MSRVTT(
                 data_path=(
                         root_dir / 'annotations' / 'train.csv').as_posix(),
@@ -78,45 +77,60 @@ class MSRVTTDataModule(pl.LightningDataModule):
                     clip_duration=float(self.nr_frames / self.fps)
                 ),
                 video_sampler=torch.utils.data.DistributedSampler,
-                video_path_prefix=(root_dir / 'train').as_posix(),
+                video_path_prefix=(root_dir / 'videos').as_posix(),
                 decode_audio=False,
                 transform=self.train_transform
             )
             self.msrvtt_val = MSRVTT(
                 data_path=(
-                        root_dir / 'annotations' / 'validate.csv')
+                        root_dir / 'annotations' / 'val.csv')
                 .as_posix(),
                 clip_sampler=pytorchvideo.data.RandomClipSampler(
                     clip_duration=float(self.nr_frames / self.fps)
                 ),
                 video_sampler=torch.utils.data.DistributedSampler,
-                video_path_prefix=(root_dir / 'val').as_posix(),
+                video_path_prefix=(root_dir / 'videos').as_posix(),
                 decode_audio=False,
                 transform=self.test_transform
             )
         if stage == 'test':
+            test_captions_path = (root_dir /
+                                  'annotations' /
+                                  'test_captions.csv')
+
+            annotations = pd.read_csv(test_captions_path)
+            self.index_to_caption = self.create_caption_index(annotations)
+            self.txt2vis, self.vis2txt = self.create_index_mappings(annotations)
+
             self.msrvtt_test = MSRVTT(
                 data_path=(root_dir / 'annotations' / 'test.csv').as_posix(),
                 clip_sampler=pytorchvideo.data.UniformClipSampler(
                     clip_duration=float(self.nr_frames / self.fps)
                 ),
                 video_sampler=torch.utils.data.SequentialSampler,
-                video_path_prefix=(root_dir / 'test_videos' / 'TestVideo/').as_posix(),
+                video_path_prefix=(root_dir / 'videos').as_posix(),
                 decode_audio=False,
                 transform=self.test_transform
             )
 
-    def create_txt2vis(self, annotations: pd.DataFrame):
+    @staticmethod
+    def create_index_mappings(annotations: pd.DataFrame):
         vis2txt = defaultdict(list)
         txt2vis = {}
         for index, row in annotations.iterrows():
             vis2txt[row['video_id']] += [index]
-        for video_index, (key, values) in enumerate(vis2txt.items()):
+        for key, values in vis2txt.items():
             for value in values:
-                txt2vis[value] = video_index
-        self.txt2vis = txt2vis
-        self.vis2txt = vis2txt
+                txt2vis[value] = key
+        return txt2vis, vis2txt
 
+    @staticmethod
+    def create_caption_index(annotations: pd.DataFrame):
+        captions = defaultdict(list)
+        for index, row in annotations.iterrows():
+            captions[row["video_id"]] += [row["sentence"]]
+
+        return captions
 
     def train_dataloader(self):
         return DataLoader(
@@ -144,6 +158,7 @@ class MSRVTTDataModule(pl.LightningDataModule):
             num_workers=self.num_workers,
             pin_memory=True
         )
+
 
 if __name__ == '__main__':
     datamodule = MSRVTTDataModule(

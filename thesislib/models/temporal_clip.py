@@ -1,4 +1,4 @@
-from typing import Dict, Union, Optional
+from typing import Dict, Union, Optional, List
 
 import numpy as np
 import pytorch_lightning as pl
@@ -30,6 +30,7 @@ class TemporalCLIP(pl.LightningModule):
             lr_scheduler: Optional[str] = 'cosine',
             epochs: Optional[int] = 150,
             permutation_mode: Optional[str] = None,
+            unseen_classes: Optional[List] = None,
     ) -> None:
 
         super().__init__()
@@ -41,11 +42,11 @@ class TemporalCLIP(pl.LightningModule):
         self.optimizer = optimizer
         self.lr_scheduler = lr_scheduler
         self.epochs = epochs
+        self.unseen_classes = unseen_classes
         self._get_pred_frames()
         self._build_permutation(permutation_mode)
 
-        self.index_to_prompt = None
-        self.index_to_label = None
+        self.index_to_classes = None
         self.class_to_id = None
         self._freeze_components()
         self._build_vca_module(vca_settings)
@@ -127,6 +128,16 @@ class TemporalCLIP(pl.LightningModule):
             top_k=5,
             subset=temporal_dataset['static']
         )
+
+        if self.unseen_classes is not None:
+            self.unseen_class_top1_accuracy = ClipAccuracy(
+                top_k=1,
+                subset=self.unseen_classes
+            )
+            self.unseen_class_top5_accuracy = ClipAccuracy(
+                top_k=5,
+                subset=self.unseen_classes
+            )
 
     def train_forward(self, frames):
         video_features = self._encode_image(frames)
@@ -389,7 +400,8 @@ class TemporalCLIP(pl.LightningModule):
     def on_test_start(self) -> None:
         self._create_test_metrics(self.trainer.datamodule.temporal_dataset)
         self.prompt_prefixes = self.trainer.datamodule.prompt_prefixes
-        self.visual_context_addition.set_val_test_transforms()
+        if self.visual_context_addition:
+            self.visual_context_addition.set_val_test_transforms()
         self.index_to_classes = self.trainer.datamodule.index_to_classes
         self.class_to_id = self.trainer.datamodule.class_to_id
         self._tokenize_prompts()
@@ -401,7 +413,9 @@ class TemporalCLIP(pl.LightningModule):
         self._tokenize_prompts()
 
     def on_validation_start(self) -> None:
-        self.visual_context_addition.set_val_test_transforms()
+        if self.visual_context_addition:
+            self.visual_context_addition.set_val_test_transforms()
 
     def on_train_start(self) -> None:
-        self.visual_context_addition.set_train_transforms()
+        if self.visual_context_addition:
+            self.visual_context_addition.set_train_transforms()

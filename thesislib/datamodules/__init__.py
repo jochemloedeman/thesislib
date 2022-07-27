@@ -2,3 +2,4 @@ from .kinetics400_datamodule import Kinetics400DataModule
 from .kinetics400_permutation_datamodule import Kinetics400PermutationDataModule
 from .hmdb51_datamodule import HMDB51DataModule
 from .msrvtt_datamodule import MSRVTTDataModule
+from .ucf101_datamodule import UCF101DataModule

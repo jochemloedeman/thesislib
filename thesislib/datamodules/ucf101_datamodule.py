@@ -1,3 +1,4 @@
+import json
 import pathlib
 from typing import Optional
 
@@ -6,12 +7,11 @@ import pytorch_lightning as pl
 import pytorchvideo.transforms
 import torch
 import torchvision.transforms
-from pytorchvideo.data import Kinetics
+from pytorchvideo.data import Kinetics, Ucf101
 from torch.utils.data import DataLoader
-from thesislib.temporal import TemporalLabel
 
 
-class Kinetics400DataModule(pl.LightningDataModule):
+class UCF101DataModule(pl.LightningDataModule):
     def __init__(
             self,
             data_root,
@@ -21,7 +21,6 @@ class Kinetics400DataModule(pl.LightningDataModule):
             nr_frames,
             fps,
             temporal_dataset,
-            unseen_classes,
             **kwargs,
     ):
         super().__init__()
@@ -32,7 +31,6 @@ class Kinetics400DataModule(pl.LightningDataModule):
         self.nr_frames = nr_frames
         self.fps = fps
         self.temporal_dataset = temporal_dataset
-        self.unseen_classes = unseen_classes
 
         self.prompt_prefixes = [
             "A video of",
@@ -44,12 +42,8 @@ class Kinetics400DataModule(pl.LightningDataModule):
         ]
 
     def setup(self, stage: Optional[str] = None) -> None:
-        root_dir = pathlib.Path(self.data_root) / 'kinetics'
-        labels_to_id = (
-                root_dir /
-                'annotations' /
-                f'labels_to_id{"_0shot" if self.unseen_classes else ""}.csv'
-        )
+        root_dir = pathlib.Path(self.data_root) / 'ucf101'
+        labels_to_id = root_dir / 'annotations' / 'labels_to_id.csv'
         self.id_to_class = pd.read_csv(labels_to_id).to_dict()['name']
         self.class_to_id = {v: k for k, v in self.id_to_class.items()}
         self.train_transform = pytorchvideo.transforms.ApplyTransformToKey(
@@ -82,12 +76,9 @@ class Kinetics400DataModule(pl.LightningDataModule):
             ])
         )
         if stage == 'fit':
-            self.kinetics_train = Kinetics(
+            self.ucf101_train = Ucf101(
                 data_path=(
-                        root_dir /
-                        'annotations' /
-                        f'train{"_0shot" if self.unseen_classes else ""}.csv')
-                .as_posix(),
+                        root_dir / 'annotations' / 'train.csv').as_posix(),
                 clip_sampler=pytorchvideo.data.RandomClipSampler(
                     clip_duration=float(self.nr_frames / self.fps)
                 ),
@@ -96,11 +87,9 @@ class Kinetics400DataModule(pl.LightningDataModule):
                 decode_audio=False,
                 transform=self.train_transform
             )
-            self.kinetics_val = Kinetics(
+            self.ucf101_val = Ucf101(
                 data_path=(
-                        root_dir /
-                        'annotations' /
-                        f'validate{"_0shot" if self.unseen_classes else ""}.csv')
+                        root_dir / 'annotations' / 'validate.csv')
                 .as_posix(),
                 clip_sampler=pytorchvideo.data.RandomClipSampler(
                     clip_duration=float(self.nr_frames / self.fps)
@@ -111,13 +100,13 @@ class Kinetics400DataModule(pl.LightningDataModule):
                 transform=self.test_transform
             )
         if stage == 'test':
-            self.kinetics_test = Kinetics(
+            self.ucf101_test = Ucf101(
                 data_path=(root_dir / 'annotations' / 'test.csv').as_posix(),
                 clip_sampler=pytorchvideo.data.UniformClipSampler(
                     clip_duration=float(self.nr_frames / self.fps)
                 ),
                 video_sampler=torch.utils.data.SequentialSampler,
-                video_path_prefix=(root_dir / 'test').as_posix(),
+                video_path_prefix=(root_dir / 'videos').as_posix(),
                 decode_audio=False,
                 transform=self.test_transform
             )
@@ -127,7 +116,7 @@ class Kinetics400DataModule(pl.LightningDataModule):
 
     def train_dataloader(self):
         return DataLoader(
-            dataset=self.kinetics_train,
+            dataset=self.ucf101_train,
             batch_size=self.train_batch_size,
             shuffle=False,
             num_workers=self.num_workers,
@@ -136,7 +125,7 @@ class Kinetics400DataModule(pl.LightningDataModule):
 
     def val_dataloader(self):
         return DataLoader(
-            dataset=self.kinetics_val,
+            dataset=self.ucf101_val,
             batch_size=self.test_batch_size,
             shuffle=False,
             num_workers=self.num_workers,
@@ -145,7 +134,7 @@ class Kinetics400DataModule(pl.LightningDataModule):
 
     def test_dataloader(self):
         return DataLoader(
-            dataset=self.kinetics_test,
+            dataset=self.ucf101_test,
             batch_size=self.test_batch_size,
             shuffle=False,
             num_workers=self.num_workers,
@@ -163,9 +152,13 @@ class Kinetics400DataModule(pl.LightningDataModule):
 
 
 if __name__ == '__main__':
-    module = Kinetics400DataModule(
-        test_batch_size=1,
-        num_workers=4
+    module = UCF101DataModule(
+        data_root="/home/jochem/Documents/ai/scriptie/data",
+        train_batch_size=2,
+        test_batch_size=2,
+        num_workers=4,
+        nr_frames=4,
+        fps=4
     )
-    module.setup()
+    module.setup(stage="test")
     print()
