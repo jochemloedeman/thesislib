@@ -7,14 +7,16 @@ import pandas as pd
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--k', default=200, type=int)
+    parser.add_argument('--data_path', default="/home/jochem/Documents/ai/scriptie/data", type=str)
     args = parser.parse_args()
-    train_annot_path = "/home/jochem/Documents/ai/scriptie/data/kinetics/annotations/train.csv"
-    new_train_annot_path = "/home/jochem/Documents/ai/scriptie/data/kinetics/annotations/train_0shot.csv"
-    val_annot_path = "/home/jochem/Documents/ai/scriptie/data/kinetics/annotations/validate.csv"
-    new_val_annot_path = "/home/jochem/Documents/ai/scriptie/data/kinetics/annotations/validate_0shot.csv"
-    zeroshot_classes_path = "/home/jochem/Documents/ai/scriptie/data/kinetics/annotations/0shot_classes.txt"
-    index_path = "/home/jochem/Documents/ai/scriptie/data/kinetics/annotations/labels_to_id.csv"
-    new_index_path = "/home/jochem/Documents/ai/scriptie/data/kinetics/annotations/labels_to_id_0shot.csv"
+
+    train_annot_path = f"{args.data_path}/kinetics/annotations/train.csv"
+    new_train_annot_path = f"{args.data_path}/kinetics/annotations/train_0shot.csv"
+    val_annot_path = f"{args.data_path}/kinetics/annotations/validate.csv"
+    new_val_annot_path = f"{args.data_path}/kinetics/annotations/validate_0shot.csv"
+    zeroshot_classes_path = f"{args.data_path}/kinetics/annotations/0shot_classes.txt"
+    index_path = f"{args.data_path}/kinetics/annotations/labels_to_id.csv"
+    new_index_path = f"{args.data_path}/kinetics/annotations/labels_to_id_0shot.csv"
 
     zeroshot_classes = random.sample(range(400), k=args.k)
     train_classes = [index for index in range(400) if
