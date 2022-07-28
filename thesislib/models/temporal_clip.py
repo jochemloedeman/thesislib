@@ -153,7 +153,6 @@ class TemporalCLIP(pl.LightningModule):
             optimizer = torch.optim.SGD(
                 filter(lambda p: p.requires_grad, self.parameters()),
                 lr=1e-1,
-                weight_decay=0.0001,
                 momentum=0.9
             )
         if self.lr_scheduler == 'cosine':
