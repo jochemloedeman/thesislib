@@ -5,7 +5,7 @@ import pytorch_lightning as pl
 import torch
 import torchvision
 
-from . import S3D, S3DHD
+from . import S3D
 from ...permutation import TemporalPermutation
 
 
@@ -14,6 +14,7 @@ class VideoVCA(pl.LightningModule):
             self,
             nr_output_vectors,
             vector_dim,
+            pretrained_vca,
             video_resolution=112,
             input_type='diff',
             temporal_permutation=False,
@@ -24,7 +25,7 @@ class VideoVCA(pl.LightningModule):
         self.vector_dim = vector_dim
         self.video_resolution = video_resolution
         self.input_type = input_type
-        if video_resolution == 224:
+        if pretrained_vca:
             s3d = self._load_model_from_pt()
         else:
             s3d = S3D(nr_output_vectors * vector_dim)
@@ -36,7 +37,7 @@ class VideoVCA(pl.LightningModule):
             self.temporal_permutation = None
 
     def _load_model_from_pt(self):
-        model = S3DHD(400)
+        model = S3D(400)
         file_weight = Path(__file__).parent / 'S3D_kinetics400.pt'
         if os.path.isfile(file_weight):
             print('loading weight file')

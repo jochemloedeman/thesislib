@@ -20,7 +20,6 @@ class Kinetics400DataModule(pl.LightningDataModule):
             num_workers,
             nr_frames,
             fps,
-            temporal_dataset,
             unseen_classes,
             **kwargs,
     ):
@@ -31,17 +30,9 @@ class Kinetics400DataModule(pl.LightningDataModule):
         self.num_workers = num_workers
         self.nr_frames = nr_frames
         self.fps = fps
-        self.temporal_dataset = temporal_dataset
         self.unseen_classes = unseen_classes
 
-        self.prompt_prefixes = [
-            "A video of",
-            "A video of someone",
-            "A video of a person",
-            "A photo of",
-            "A photo of someone",
-            "A photo of a person"
-        ]
+        self.prompt_prefix = "A video of"
 
     def setup(self, stage: Optional[str] = None) -> None:
         root_dir = pathlib.Path(self.data_root) / 'kinetics'

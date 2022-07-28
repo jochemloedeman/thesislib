@@ -34,6 +34,7 @@ class TemporalCLIP(pl.LightningModule):
     ) -> None:
 
         super().__init__()
+        self.prompt_prefix = None
         self.save_hyperparameters()
         self.clip_model, _ = clip.load(clip_architecture, device='cpu')
         self.temporal_dataset = temporal_dataset
@@ -88,16 +89,6 @@ class TemporalCLIP(pl.LightningModule):
             )
 
     def _create_validation_metrics(self):
-        self.classwise_top1_accuracy = torchmetrics.Accuracy(
-            num_classes=self.temporal_dataset['number_of_classes'],
-            average='none',
-            top_k=1,
-        )
-        self.classwise_top5_accuracy = torchmetrics.Accuracy(
-            num_classes=self.temporal_dataset['number_of_classes'],
-            average='none',
-            top_k=5
-        )
         self.top5_accuracy = torchmetrics.Accuracy(
             top_k=5
         )
@@ -139,7 +130,7 @@ class TemporalCLIP(pl.LightningModule):
                 subset=self.unseen_classes
             )
 
-    def train_forward(self, frames):
+    def forward(self, frames):
         video_features = self._encode_image(frames)
         video_features = video_features.mean(dim=1)
         video_features = video_features / video_features.norm(dim=1,
@@ -187,7 +178,7 @@ class TemporalCLIP(pl.LightningModule):
             batch["video"],
             batch["label"]
         )
-        logits_per_video, logits_per_text = self.train_forward(frames)
+        logits_per_video, logits_per_text = self(frames)
         loss = cross_entropy(logits_per_video, labels)
         self.log('train_loss', loss)
 
@@ -203,8 +194,6 @@ class TemporalCLIP(pl.LightningModule):
         self.log('val_loss', loss, prog_bar=True, on_epoch=True, on_step=True)
         self.top1_accuracy(logits_per_video, labels)
         self.top5_accuracy(logits_per_video, labels)
-        self.classwise_top1_accuracy(logits_per_video, labels)
-        self.classwise_top5_accuracy(logits_per_video, labels)
 
     def test_step(self, batch, batch_idx):
         frames, labels, video_indices = (
@@ -254,25 +243,6 @@ class TemporalCLIP(pl.LightningModule):
                  self.static_top5_accuracy.compute())
 
     def validation_epoch_end(self, outputs) -> None:
-        top1_acc_per_class = self.classwise_top1_accuracy.compute()
-        top5_acc_per_class = self.classwise_top5_accuracy.compute()
-
-        temporal_top1_acc = top1_acc_per_class[
-            self.temporal_dataset['temporal']].mean()
-        static_top1_acc = top1_acc_per_class[
-            self.temporal_dataset['static']].mean()
-
-        temporal_top5_acc = top5_acc_per_class[
-            self.temporal_dataset['temporal']].mean()
-        static_top5_acc = top5_acc_per_class[
-            self.temporal_dataset['static']].mean()
-
-        self.log('val_top1_accuracy_temporal', temporal_top1_acc)
-        self.log('val_top1_accuracy_static', static_top1_acc)
-
-        self.log('val_top5_accuracy_temporal', temporal_top5_acc)
-        self.log('val_top5_accuracy_static', static_top5_acc)
-
         self.log('val_top1_accuracy_total', self.top1_accuracy)
         self.log('val_top5_accuracy_total', self.top5_accuracy)
 
@@ -286,7 +256,7 @@ class TemporalCLIP(pl.LightningModule):
             x, eot_indices = self.textual_context_addition(
                 x,
                 eot_indices,
-                list(self.index_to_prompt.values()),
+                list(self.index_to_classes.values()),
             )
 
         x = self._modified_text_encode(x, eot_indices)
@@ -385,13 +355,9 @@ class TemporalCLIP(pl.LightningModule):
 
     def _tokenize_prompts(self) -> None:
         class_prompts = list(self.index_to_classes.values())
-        prompt_ensemble = []
-        for prefix in self.prompt_prefixes: 
-            full_prompts = [prefix + " " + prompt for prompt in class_prompts]
-            tokenized_prompts = clip.tokenize(full_prompts)
-            prompt_ensemble.append(tokenized_prompts)
-        
-        self.tokenized_prompts = torch.stack(prompt_ensemble).to(self.device)
+        full_prompt = [self.prompt_prefix + " " + prompt for prompt in class_prompts]
+        tokenized_prompts = clip.tokenize(full_prompt)
+        self.tokenized_prompts = tokenized_prompts.to(self.device)
 
     def _freeze_components(self) -> None:
         for param in self.clip_model.parameters():
@@ -399,7 +365,7 @@ class TemporalCLIP(pl.LightningModule):
 
     def on_test_start(self) -> None:
         self._create_test_metrics(self.trainer.datamodule.temporal_dataset)
-        self.prompt_prefixes = self.trainer.datamodule.prompt_prefixes
+        self.prompt_prefix = self.trainer.datamodule.prompt_prefix
         if self.visual_context_addition:
             self.visual_context_addition.set_val_test_transforms()
         self.index_to_classes = self.trainer.datamodule.index_to_classes
@@ -407,7 +373,7 @@ class TemporalCLIP(pl.LightningModule):
         self._tokenize_prompts()
 
     def on_fit_start(self) -> None:
-        self.prompt_prefixes = self.trainer.datamodule.prompt_prefixes
+        self.prompt_prefix = self.trainer.datamodule.prompt_prefix
         self.index_to_classes = self.trainer.datamodule.index_to_classes
         self.class_to_id = self.trainer.datamodule.class_to_id
         self._tokenize_prompts()

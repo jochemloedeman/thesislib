@@ -41,44 +41,6 @@ class S3D(nn.Module):
         return logits
 
 
-class S3DHD(nn.Module):
-    def __init__(self, num_class):
-        super(S3DHD, self).__init__()
-        self.base = nn.Sequential(
-            SepConv3d(3, 64, kernel_size=7, stride=2, padding=3),
-            nn.MaxPool3d(kernel_size=(1, 3, 3), stride=(1, 2, 2),
-                         padding=(0, 1, 1)),
-            BasicConv3d(64, 64, kernel_size=1, stride=1),
-            SepConv3d(64, 192, kernel_size=3, stride=1, padding=1),
-            nn.MaxPool3d(kernel_size=(1, 3, 3), stride=(1, 2, 2),
-                         padding=(0, 1, 1)),
-            Mixed_3b(),
-            Mixed_3c(),
-            nn.MaxPool3d(kernel_size=(3, 3, 3), stride=(2, 2, 2),
-                         padding=(1, 1, 1)),
-            Mixed_4b(),
-            Mixed_4c(),
-            Mixed_4d(),
-            Mixed_4e(),
-            Mixed_4f(),
-            nn.MaxPool3d(kernel_size=(2, 2, 2), stride=(2, 2, 2),
-                         padding=(0, 0, 0)),
-            Mixed_5b(),
-            Mixed_5c(),
-        )
-        self.fc = nn.Sequential(
-            nn.Conv3d(1024, num_class, kernel_size=1, stride=1, bias=True), )
-
-    def forward(self, x):
-        y = self.base(x)
-        y = F.avg_pool3d(y, (1, y.size(3), y.size(4)), stride=1)
-        y = self.fc(y)
-        y = y.view(y.size(0), y.size(1), y.size(2))
-        logits = torch.mean(y, 2)
-
-        return logits
-
-
 class BasicConv3d(nn.Module):
     def __init__(self, in_planes, out_planes, kernel_size, stride, padding=0):
         super(BasicConv3d, self).__init__()
