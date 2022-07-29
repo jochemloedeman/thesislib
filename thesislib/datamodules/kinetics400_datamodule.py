@@ -20,7 +20,8 @@ class Kinetics400DataModule(pl.LightningDataModule):
             num_workers,
             nr_frames,
             fps,
-            unseen_classes,
+            temporal_dataset,
+            zeroshot=False,
             **kwargs,
     ):
         super().__init__()
@@ -30,8 +31,8 @@ class Kinetics400DataModule(pl.LightningDataModule):
         self.num_workers = num_workers
         self.nr_frames = nr_frames
         self.fps = fps
-        self.unseen_classes = unseen_classes
-
+        self.zeroshot = zeroshot
+        self.temporal_dataset = temporal_dataset
         self.prompt_prefix = "A video of"
 
     def setup(self, stage: Optional[str] = None) -> None:
@@ -39,7 +40,7 @@ class Kinetics400DataModule(pl.LightningDataModule):
         labels_to_id = (
                 root_dir /
                 'annotations' /
-                f'labels_to_id{"_0shot" if self.unseen_classes else ""}.csv'
+                f'labels_to_id{"_0shot" if self.zeroshot else ""}.csv'
         )
         self.id_to_class = pd.read_csv(labels_to_id).to_dict()['name']
         self.class_to_id = {v: k for k, v in self.id_to_class.items()}
@@ -77,7 +78,7 @@ class Kinetics400DataModule(pl.LightningDataModule):
                 data_path=(
                         root_dir /
                         'annotations' /
-                        f'train{"_0shot" if self.unseen_classes else ""}.csv')
+                        f'train{"_0shot" if self.zeroshot else ""}.csv')
                 .as_posix(),
                 clip_sampler=pytorchvideo.data.RandomClipSampler(
                     clip_duration=float(self.nr_frames / self.fps)
@@ -91,7 +92,7 @@ class Kinetics400DataModule(pl.LightningDataModule):
                 data_path=(
                         root_dir /
                         'annotations' /
-                        f'validate{"_0shot" if self.unseen_classes else ""}.csv')
+                        f'validate{"_0shot" if self.zeroshot else ""}.csv')
                 .as_posix(),
                 clip_sampler=pytorchvideo.data.RandomClipSampler(
                     clip_duration=float(self.nr_frames / self.fps)
@@ -114,7 +115,6 @@ class Kinetics400DataModule(pl.LightningDataModule):
             )
 
         self._calculate_index_to_classes()
-        print()
 
     def train_dataloader(self):
         return DataLoader(

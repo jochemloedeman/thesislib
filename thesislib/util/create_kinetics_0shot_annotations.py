@@ -25,7 +25,8 @@ if __name__ == '__main__':
                  for index in range(len(train_classes))}
 
     open(zeroshot_classes_path, "w").writelines(
-        [str(elem) + "\n" for elem in zeroshot_classes])
+        [str(elem) + "\n" for elem in zeroshot_classes]
+    )
     with open(train_annot_path, "r") as in_file:
         reader = csv.reader(in_file, delimiter=" ")
         with open(new_train_annot_path, "w") as out_file:

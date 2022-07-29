@@ -97,37 +97,65 @@ class TemporalCLIP(pl.LightningModule):
         )
 
     def _create_test_metrics(self, temporal_dataset):
-        self.test_top5_accuracy = ClipAccuracy(
-            top_k=5,
-        )
-        self.test_top1_accuracy = ClipAccuracy(
-            top_k=1,
-        )
-        self.temporal_top1_accuracy = ClipAccuracy(
-            top_k=1,
-            subset=temporal_dataset['temporal']
-        )
-        self.temporal_top5_accuracy = ClipAccuracy(
-            top_k=5,
-            subset=temporal_dataset['temporal']
-        )
-        self.static_top1_accuracy = ClipAccuracy(
-            top_k=1,
-            subset=temporal_dataset['static']
-        )
-        self.static_top5_accuracy = ClipAccuracy(
-            top_k=5,
-            subset=temporal_dataset['static']
-        )
+        self.test_metrics = [
+            ClipAccuracy(
+                name='test_top1_accuracy',
+                top_k=1,
+            ),
+            ClipAccuracy(
+                name='test_top5_accuracy',
+                top_k=5,
+            ),
+            ClipAccuracy(
+                name='temporal_top1_accuracy',
+                top_k=1,
+                subset=temporal_dataset['temporal']
+            ),
+            ClipAccuracy(
+                name='temporal_top5_accuracy',
+                top_k=5,
+                subset=temporal_dataset['temporal']
+            ),
+            ClipAccuracy(
+                name='static_top1_accuracy',
+                top_k=1,
+                subset=temporal_dataset['static']
+            ),
+            ClipAccuracy(
+                name='static_top5_accuracy',
+                top_k=5,
+                subset=temporal_dataset['static']
+            ),
+        ]
 
         if self.unseen_classes is not None:
-            self.unseen_class_top1_accuracy = ClipAccuracy(
-                top_k=1,
-                subset=self.unseen_classes
-            )
-            self.unseen_class_top5_accuracy = ClipAccuracy(
-                top_k=5,
-                subset=self.unseen_classes
+            seen_classes = [
+                idx for idx in range(self.temporal_dataset['number_of_classes'])
+                if idx not in self.unseen_classes
+            ]
+            self.test_metrics.extend(
+                [
+                    ClipAccuracy(
+                        name='unseen_class_top1_accuracy',
+                        top_k=1,
+                        subset=self.unseen_classes
+                    ),
+                    ClipAccuracy(
+                        name='unseen_class_top5_accuracy',
+                        top_k=5,
+                        subset=self.unseen_classes
+                    ),
+                    ClipAccuracy(
+                        name='seen_class_top1_accuracy',
+                        top_k=1,
+                        subset=seen_classes
+                    ),
+                    ClipAccuracy(
+                        name='seen_class_top5_accuracy',
+                        top_k=5,
+                        subset=seen_classes
+                    )
+                ]
             )
 
     def forward(self, frames):
@@ -205,41 +233,12 @@ class TemporalCLIP(pl.LightningModule):
                                   device=self.device)
 
         logits_per_video, logits_per_text = self(frames)
-        self.test_top1_accuracy(logits_per_video, labels, video_indices)
-        self.test_top5_accuracy(logits_per_video, labels, video_indices)
-
-        self.temporal_top1_accuracy(
-            logits_per_video,
-            labels,
-            video_indices
-        )
-        self.temporal_top5_accuracy(
-            logits_per_video,
-            labels,
-            video_indices
-        )
-        self.static_top1_accuracy(
-            logits_per_video,
-            labels,
-            video_indices
-        )
-        self.static_top5_accuracy(
-            logits_per_video,
-            labels,
-            video_indices
-        )
+        for metric in self.test_metrics:
+            metric.update(logits_per_video, labels, video_indices)
 
     def test_epoch_end(self, outputs) -> None:
-        self.log('test_top1_accuracy_total', self.test_top1_accuracy.compute())
-        self.log('test_top5_accuracy_total', self.test_top5_accuracy.compute())
-        self.log('temporal_top1_accuracy',
-                 self.temporal_top1_accuracy.compute())
-        self.log('temporal_top5_accuracy',
-                 self.temporal_top5_accuracy.compute())
-        self.log('static_top1_accuracy',
-                 self.static_top1_accuracy.compute())
-        self.log('static_top5_accuracy',
-                 self.static_top5_accuracy.compute())
+        for metric in self.test_metrics:
+            self.log(metric.name, metric.compute())
 
     def validation_epoch_end(self, outputs) -> None:
         self.log('val_top1_accuracy_total', self.top1_accuracy)

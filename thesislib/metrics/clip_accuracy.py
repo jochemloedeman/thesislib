@@ -8,12 +8,13 @@ import torchmetrics
 class ClipAccuracy:
     def __init__(
             self,
+            name: str,
             top_k: Optional[int] = None,
             num_classes: Optional[int] = None,
             average: Optional[str] = "micro",
             subset: Optional[List[int]] = None,
     ) -> None:
-
+        self.name = name
         self.subset = subset
         self.metric = torchmetrics.Accuracy(
             num_classes=num_classes,
@@ -36,10 +37,10 @@ class ClipAccuracy:
         total_indices = torch.cat(self.video_indices, dim=0).squeeze()
 
         if self.subset:
-            subset_indices = self._get_subset_mask(total_labels)
-            total_labels = total_labels[subset_indices]
-            total_preds = total_preds[subset_indices]
-            total_indices = total_indices[subset_indices]
+            subset_mask = self._get_subset_mask(total_labels)
+            total_labels = total_labels[subset_mask]
+            total_preds = total_preds[subset_mask]
+            total_indices = total_indices[subset_mask]
 
         aggregated_preds = self._aggregate_preds(total_preds,
                                                  total_indices)
