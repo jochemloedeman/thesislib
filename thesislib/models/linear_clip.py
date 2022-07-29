@@ -8,7 +8,6 @@ from clip import clip
 from clip.simple_tokenizer import SimpleTokenizer
 from torch.nn.functional import cross_entropy
 from ..metrics import ClipAccuracy
-from ..permutation import VCAPermutation
 
 
 class LinearCLIP(pl.LightningModule):
@@ -54,28 +53,36 @@ class LinearCLIP(pl.LightningModule):
         )
 
     def _create_test_metrics(self, temporal_dataset):
-        self.test_top5_accuracy = ClipAccuracy(
-            top_k=5,
-        )
-        self.test_top1_accuracy = ClipAccuracy(
-            top_k=1,
-        )
-        self.temporal_top1_accuracy = ClipAccuracy(
-            top_k=1,
-            subset=temporal_dataset['temporal']
-        )
-        self.temporal_top5_accuracy = ClipAccuracy(
-            top_k=5,
-            subset=temporal_dataset['temporal']
-        )
-        self.static_top1_accuracy = ClipAccuracy(
-            top_k=1,
-            subset=temporal_dataset['static']
-        )
-        self.static_top5_accuracy = ClipAccuracy(
-            top_k=5,
-            subset=temporal_dataset['static']
-        )
+        self.test_metrics = [
+            ClipAccuracy(
+                name='test_top1_accuracy',
+                top_k=1,
+            ),
+            ClipAccuracy(
+                name='test_top5_accuracy',
+                top_k=5,
+            ),
+            ClipAccuracy(
+                name='temporal_top1_accuracy',
+                top_k=1,
+                subset=temporal_dataset['temporal']
+            ),
+            ClipAccuracy(
+                name='temporal_top5_accuracy',
+                top_k=5,
+                subset=temporal_dataset['temporal']
+            ),
+            ClipAccuracy(
+                name='static_top1_accuracy',
+                top_k=1,
+                subset=temporal_dataset['static']
+            ),
+            ClipAccuracy(
+                name='static_top5_accuracy',
+                top_k=5,
+                subset=temporal_dataset['static']
+            ),
+        ]
 
     def forward(self, frames):
         pred_frames = self._get_pred_frames()
@@ -101,7 +108,6 @@ class LinearCLIP(pl.LightningModule):
             optimizer = torch.optim.SGD(
                 filter(lambda p: p.requires_grad, self.parameters()),
                 lr=1e-1,
-                weight_decay=0.0001,
                 momentum=0.9
             )
         if self.lr_scheduler == 'cosine':
@@ -153,41 +159,12 @@ class LinearCLIP(pl.LightningModule):
                                   device=self.device)
 
         logits_per_video = self(frames)
-        self.test_top1_accuracy(logits_per_video, labels, video_indices)
-        self.test_top5_accuracy(logits_per_video, labels, video_indices)
-
-        self.temporal_top1_accuracy(
-            logits_per_video,
-            labels,
-            video_indices
-        )
-        self.temporal_top5_accuracy(
-            logits_per_video,
-            labels,
-            video_indices
-        )
-        self.static_top1_accuracy(
-            logits_per_video,
-            labels,
-            video_indices
-        )
-        self.static_top5_accuracy(
-            logits_per_video,
-            labels,
-            video_indices
-        )
+        for metric in self.test_metrics:
+            metric.update(logits_per_video, labels, video_indices)
 
     def test_epoch_end(self, outputs) -> None:
-        self.log('test_top1_accuracy_total', self.test_top1_accuracy.compute())
-        self.log('test_top5_accuracy_total', self.test_top5_accuracy.compute())
-        self.log('temporal_top1_accuracy',
-                 self.temporal_top1_accuracy.compute())
-        self.log('temporal_top5_accuracy',
-                 self.temporal_top5_accuracy.compute())
-        self.log('static_top1_accuracy',
-                 self.static_top1_accuracy.compute())
-        self.log('static_top5_accuracy',
-                 self.static_top5_accuracy.compute())
+        for metric in self.test_metrics:
+            self.log(metric.name, metric.compute())
 
     def validation_epoch_end(self, outputs) -> None:
         self.log('val_top1_accuracy_total', self.top1_accuracy)
@@ -213,8 +190,6 @@ class LinearCLIP(pl.LightningModule):
 
     def on_test_start(self) -> None:
         self._create_test_metrics(self.trainer.datamodule.temporal_dataset)
-        if self.visual_context_addition:
-            self.visual_context_addition.set_val_test_transforms()
         self.class_to_id = self.trainer.datamodule.class_to_id
 
     def on_fit_start(self) -> None:
