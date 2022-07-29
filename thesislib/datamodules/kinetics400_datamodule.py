@@ -8,10 +8,20 @@ import torch
 import torchvision.transforms
 from pytorchvideo.data import Kinetics
 from torch.utils.data import DataLoader
-from thesislib.temporal import TemporalLabel
 
 
 class Kinetics400DataModule(pl.LightningDataModule):
+
+    label_to_id_map = {
+        'zeroshot': "_0shot",
+        'fewshot': "",
+        'regular': "",
+    }
+    path_file_map = {
+        'zeroshot': "_0shot",
+        'fewshot': "_fewshot",
+        'regular': "",
+    }
     def __init__(
             self,
             data_root,
@@ -21,7 +31,7 @@ class Kinetics400DataModule(pl.LightningDataModule):
             nr_frames,
             fps,
             temporal_dataset,
-            zeroshot=False,
+            scenario,
             **kwargs,
     ):
         super().__init__()
@@ -31,7 +41,7 @@ class Kinetics400DataModule(pl.LightningDataModule):
         self.num_workers = num_workers
         self.nr_frames = nr_frames
         self.fps = fps
-        self.zeroshot = zeroshot
+        self.scenario = scenario
         self.temporal_dataset = temporal_dataset
         self.prompt_prefix = "A video of"
 
@@ -40,7 +50,7 @@ class Kinetics400DataModule(pl.LightningDataModule):
         labels_to_id = (
                 root_dir /
                 'annotations' /
-                f'labels_to_id{"_0shot" if self.zeroshot else ""}.csv'
+                f"labels_to_id{self.label_to_id_map[self.scenario]}.csv"
         )
         self.id_to_class = pd.read_csv(labels_to_id).to_dict()['name']
         self.class_to_id = {v: k for k, v in self.id_to_class.items()}
@@ -78,7 +88,7 @@ class Kinetics400DataModule(pl.LightningDataModule):
                 data_path=(
                         root_dir /
                         'annotations' /
-                        f'train{"_0shot" if self.zeroshot else ""}.csv')
+                        f'train{self.path_file_map[self.scenario]}.csv')
                 .as_posix(),
                 clip_sampler=pytorchvideo.data.RandomClipSampler(
                     clip_duration=float(self.nr_frames / self.fps)
@@ -92,7 +102,7 @@ class Kinetics400DataModule(pl.LightningDataModule):
                 data_path=(
                         root_dir /
                         'annotations' /
-                        f'validate{"_0shot" if self.zeroshot else ""}.csv')
+                        f'validate{self.path_file_map[self.scenario]}.csv')
                 .as_posix(),
                 clip_sampler=pytorchvideo.data.RandomClipSampler(
                     clip_duration=float(self.nr_frames / self.fps)
@@ -151,12 +161,3 @@ class Kinetics400DataModule(pl.LightningDataModule):
         self.index_to_classes = {
             idx: classes[idx] for idx in range(len(classes))
         }
-
-
-if __name__ == '__main__':
-    module = Kinetics400DataModule(
-        test_batch_size=1,
-        num_workers=4
-    )
-    module.setup()
-    print()
